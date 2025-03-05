@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Побуквенное появление текста с паузой и автопрокруткой</title>
+    <style>
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            background-color: #f0f0f0;
+            flex-direction: column;
+        }
+
+        .window {
+            width: 700px;
+            height: 200px;
+            border: 2px solid #000;
+            padding: 10px;
+            background-color: #fff;
+            overflow: auto;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.5;
+        }
+
+        .word-count, .written-count {
+            position: absolute;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .word-count {
+            bottom: 10px;
+            right: 20px;
+        }
+
+        .written-count {
+            top: 10px;
+            right: 20px;
+        }
+
+        .controls {
+            position: fixed; /* фиксированное положение */
+            top: 50px; /* отступ сверху */
+            left: 20px; /* отступ справа */
+            display: flex;
+            align-items: center;
+        }
+
+        .button {
+            padding: 10px 10px;
+            font-size: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            margin-right: 3px; /* Расстояние между кнопками */
+        }
+
+        .pause-btn {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .pause-btn.active {
+            background-color: #28a745;
+        }
+
+        .speed-btn {
+            background-color: #808080;
+            color: white;
+        }
+
+        #fullscreen-btn {
+            position: absolute;
+            background-color: #808080;
+            color: white;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            top: 10px;
+            left: 20px;
+        }
+
+        .fullscreen {
+            background-color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="window" id="window">
+        <div class="text" id="text">
+            <!-- Текст будет добавляться сюда -->
+        </div>
+    </div>
+
+    <div class="written-count" id="writtenCount">Написано слов: 0</div>
+    <div class="word-count" id="wordCount">Осталось слов: 0</div>
+
+    <div class="controls">
+        <button class="button speed-btn" id="decreaseSpeedBtn">↓ Уменьшить скорость</button>
+        <button class="button pause-btn" id="pauseBtn">Пауза</button>
+        <button class="button speed-btn" id="increaseSpeedBtn">↑ Увеличить скорость</button>
+    </div>
+
+    <button id="fullscreen-btn">Перейти в полноэкранный режим</button>
+
+    <script>
+        const textContent = `
+
+TEXT
+		`; // Текст для появления
+
+        const textElement = document.getElementById("text");
+        const windowElement = document.getElementById("window");
+        const wordCountElement = document.getElementById("wordCount");
+        const writtenCountElement = document.getElementById("writtenCount");
+        const pauseBtn = document.getElementById("pauseBtn");
+        const decreaseSpeedBtn = document.getElementById("decreaseSpeedBtn");
+        const increaseSpeedBtn = document.getElementById("increaseSpeedBtn");
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+        let index = 0;
+        let writtenWords = 0;
+        let totalWords = countWords(textContent);
+        let typingInterval = null;
+        let isPaused = false;
+        let speed = 100; // Начальная скорость (интервал между символами)
+
+        // Функция для подсчёта слов
+        function countWords(text) {
+            return text.trim().split(/\s+/).filter(Boolean).length;
+        }
+
+        function typeText() {
+            if (index < textContent.length) {
+                textElement.innerHTML += textContent.charAt(index);
+                index++;
+                windowElement.scrollTop = windowElement.scrollHeight;
+
+                writtenWords = countWords(textElement.innerHTML);
+
+                writtenCountElement.textContent = `Написано слов: ${writtenWords}`;
+                wordCountElement.textContent = `Осталось слов: ${totalWords - writtenWords}`;
+            }
+        }
+
+        function startTyping() {
+            if (isPaused) {
+                isPaused = false;
+                typingInterval = setInterval(typeText, speed);
+            } else {
+                typingInterval = setInterval(typeText, speed);
+            }
+        }
+
+        function togglePause() {
+            if (isPaused) {
+                isPaused = false;
+                pauseBtn.classList.remove('active');
+                typingInterval = setInterval(typeText, speed);
+            } else {
+                isPaused = true;
+                pauseBtn.classList.add('active');
+                clearInterval(typingInterval);
+            }
+        }
+
+        // Обработчики для кнопок изменения скорости
+        function increaseSpeed() {
+            speed = Math.max(10, speed - 10);
+            if (!isPaused) {
+                clearInterval(typingInterval);
+                typingInterval = setInterval(typeText, speed);
+            }
+        }
+
+        function decreaseSpeed() {
+            speed = Math.min(1000, speed + 10);
+            if (!isPaused) {
+                clearInterval(typingInterval);
+                typingInterval = setInterval(typeText, speed);
+            }
+        }
+
+        // Функция для активации полноэкранного режима
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.mozRequestFullScreen) { // Для Firefox
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) { // Для Chrome, Safari и Opera
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) { // Для IE/Edge
+                    document.documentElement.msRequestFullscreen();
+                }
+                fullscreenBtn.classList.add('fullscreen');
+                fullscreenBtn.textContent = 'Выход из полноэкранного режима';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) { // Для Firefox
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) { // Для Chrome, Safari и Opera
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { // Для IE/Edge
+                    document.msExitFullscreen();
+                }
+                fullscreenBtn.classList.remove('fullscreen');
+                fullscreenBtn.textContent = 'Перейти в полноэкранный режим';
+            }
+        }
+
+        // Запуск текста
+        startTyping();
+
+        // Обработчики для кнопок
+        pauseBtn.addEventListener('click', togglePause);
+        decreaseSpeedBtn.addEventListener('click', decreaseSpeed);
+        increaseSpeedBtn.addEventListener('click', increaseSpeed);
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+        // Обработчик для пробела (пауза)
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                togglePause();
+            } else if (event.code === 'ArrowUp') {
+                increaseSpeed();
+            } else if (event.code === 'ArrowDown') {
+                decreaseSpeed();
+            }
+        });
+    </script>
+</body>
+</html>
