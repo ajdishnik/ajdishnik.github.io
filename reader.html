@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -57,12 +57,15 @@
         /* Контейнер для всех кнопок */
         .controls-container {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 0;
+            left: 0;
+            right: 0;
             display: flex;
-            flex-direction: column;
+            flex-direction: row; /* Изменено на ряд */
             gap: 5px;
             z-index: 10;
+            justify-content: center; /* Для центрирования кнопок */
+            padding: 30px;
         }
 
         .button {
@@ -102,8 +105,8 @@
         .fullscreen {
             background-color: #28a745;
         }
-
-        /* Кнопка очистки localStorage */
+		
+		        /* Кнопка очистки localStorage */
         #clearStorage-btn {
             background-color: #dc3545;
             color: white;
@@ -150,6 +153,21 @@
                 padding: 6px 12px;
             }
         }
+
+        /* Медиазапрос для изменения расположения кнопок при повороте устройства */
+        @media (orientation: landscape) {
+            .controls-container {
+                top: 10px; /* Добавление отступа сверху при горизонтальной ориентации */
+                flex-direction: row; /* Кнопки по горизонтали */
+            }
+        }
+
+        @media (orientation: portrait) {
+            .controls-container {
+                top: 0;
+                flex-direction: row; /* Кнопки по горизонтали */
+            }
+        }
     </style>
 </head>
 <body>
@@ -164,7 +182,7 @@
 
     <!-- Контейнер для всех кнопок -->
     <div class="controls-container">
-		<button class="button" id="fullscreen-btn">🖵</button>
+        <button class="button" id="fullscreen-btn">🖵</button>
         <button class="button speed-btn" id="decreaseSpeedBtn">↓</button>
         <button class="button pause-btn" id="pauseBtn">▶</button>
         <button class="button speed-btn" id="increaseSpeedBtn">↑</button>
@@ -175,7 +193,7 @@
     <script>
         const textContent = `
 TEXT
-		`; // Текст для появления
+        `; // Текст для появления
 
         const textElement = document.getElementById("text");
         const windowElement = document.getElementById("window");
