@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -103,6 +103,12 @@
             background-color: #28a745;
         }
 
+        /* Кнопка очистки localStorage */
+        #clearStorage-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+
         /* Адаптивные стили */
         @media (max-width: 768px) {
             .window {
@@ -158,15 +164,16 @@
 
     <!-- Контейнер для всех кнопок -->
     <div class="controls-container">
-		<button class="button" id="fullscreen-btn">Перейти в полноэкранный режим</button>
-        <button class="button speed-btn" id="decreaseSpeedBtn">↓ Уменьшить скорость</button>
-        <button class="button pause-btn" id="pauseBtn">Пауза</button>
-        <button class="button speed-btn" id="increaseSpeedBtn">↑ Увеличить скорость</button>
+		<button class="button" id="fullscreen-btn">🖵</button>
+        <button class="button speed-btn" id="decreaseSpeedBtn">↓</button>
+        <button class="button pause-btn" id="pauseBtn">▶</button>
+        <button class="button speed-btn" id="increaseSpeedBtn">↑</button>
+        <!-- Кнопка очистки localStorage -->
+        <button class="button" id="clearStorage-btn">🗑</button>
     </div>
 
     <script>
         const textContent = `
-
 TEXT
 		`; // Текст для появления
 
@@ -178,6 +185,7 @@ TEXT
         const decreaseSpeedBtn = document.getElementById("decreaseSpeedBtn");
         const increaseSpeedBtn = document.getElementById("increaseSpeedBtn");
         const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const clearStorageBtn = document.getElementById('clearStorage-btn');
 
         let index = localStorage.getItem("textIndex") ? parseInt(localStorage.getItem("textIndex")) : 0;
         let textSoFar = localStorage.getItem("textSoFar") || '';
@@ -252,14 +260,26 @@ TEXT
                     document.documentElement.requestFullscreen();
                 }
                 fullscreenBtn.classList.add('fullscreen');
-                fullscreenBtn.textContent = 'Выход из полноэкранного режима';
+                fullscreenBtn.textContent = '❌';
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
                 }
                 fullscreenBtn.classList.remove('fullscreen');
-                fullscreenBtn.textContent = 'Перейти в полноэкранный режим';
+                fullscreenBtn.textContent = '🖵';
             }
+        }
+
+        // Очистка localStorage
+        function clearLocalStorage() {
+            localStorage.removeItem("textIndex");
+            localStorage.removeItem("textSoFar");
+            index = 0;
+            textSoFar = '';
+            writtenWords = 0;
+            wordCountElement.textContent = `Осталось слов: ${totalWords}`;
+            writtenCountElement.textContent = `Написано слов: ${writtenWords}`;
+            textElement.innerHTML = '';
         }
 
         textElement.innerHTML = textSoFar;
@@ -269,6 +289,7 @@ TEXT
         decreaseSpeedBtn.addEventListener('click', decreaseSpeed);
         increaseSpeedBtn.addEventListener('click', increaseSpeed);
         fullscreenBtn.addEventListener('click', toggleFullscreen);
+        clearStorageBtn.addEventListener('click', clearLocalStorage);
 
         document.addEventListener('keydown', (event) => {
             if (event.code === 'Space') {
