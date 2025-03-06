@@ -45,12 +45,12 @@
         }
 
         .word-count {
-            bottom: 10px;
+            bottom: 1px;
             right: 20px;
         }
 
         .written-count {
-            bottom: 25px;
+            bottom: 15px;
             right: 20px;
         }
 
@@ -104,15 +104,12 @@
         .fullscreen {
             background-color: #28a745;
         }
-		
-        /* Кнопка очистки localStorage */
+        
         #clearStorage-btn {
             background-color: #dc3545;
             color: white;
         }
-		
-		
-		
+        
         @media (max-width: 768px) {
             .window {
                 height: 150px;
@@ -170,12 +167,11 @@
         <button class="button speed-btn" id="decreaseSpeedBtn">↓</button>
         <button class="button pause-btn" id="pauseBtn">▶</button>
         <button class="button speed-btn" id="increaseSpeedBtn">↑</button>
-		        <!-- Кнопка выбора файла -->
         <button class="button" id="fileSelectBtn">📂</button>
         <button class="button" id="clearStorage-btn">🗑</button>
     </div>
 
-    <input type="file" id="fileInput" accept=".txt" style="display: none;" />
+    <input type="file" id="fileInput" accept=".txt,.fb2" style="display: none;" />
 
     <script>
         let textContent = localStorage.getItem("textContent") || ""; // Изначально пустой текст
@@ -290,29 +286,39 @@
             const reader = new FileReader();
             reader.onload = function(event) {
                 const fileContent = event.target.result;
-                localStorage.setItem("textContent", fileContent);
-                textContent = fileContent; // Заменяем глобальную переменную
-                totalWords = countWords(textContent);
-                // Очистить состояние
-                localStorage.removeItem("textIndex");
-                localStorage.removeItem("textSoFar");
-                index = 0;
-                textSoFar = '';
-                writtenWords = 0;
-                textElement.innerHTML = textSoFar;
-                wordCountElement.textContent = `Осталось слов: ${totalWords}`;
-                writtenCountElement.textContent = `Прочитано слов: 0`;
-                startTyping(); // Начинаем печатать текст
+                if (file.name.endsWith('.fb2')) {
+                    parseFB2(fileContent);
+                } else {
+                    localStorage.setItem("textContent", fileContent);
+                    textContent = fileContent;
+                    totalWords = countWords(textContent);
+                    startTyping();
+                }
             };
             reader.readAsText(file);
         }
 
-        // При клике на кнопку "Выбрать файл", открываем диалоговое окно
+        function parseFB2(xmlContent) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
+            const body = xmlDoc.getElementsByTagName("body")[0];
+            const textElements = body.getElementsByTagName("p");
+            let extractedText = '';
+
+            for (let i = 0; i < textElements.length; i++) {
+                extractedText += textElements[i].textContent + '\n';
+            }
+
+            localStorage.setItem("textContent", extractedText);
+            textContent = extractedText;
+            totalWords = countWords(textContent);
+            startTyping();
+        }
+
         fileSelectBtn.addEventListener("click", function() {
             fileInput.click();
         });
 
-        // Слушаем выбор файла
         fileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
@@ -320,7 +326,6 @@
             }
         });
 
-        // При запуске страницы
         textElement.innerHTML = textSoFar;
         if (textContent) {
             startTyping();
