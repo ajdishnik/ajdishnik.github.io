@@ -13,20 +13,23 @@
             margin: 0;
             background-color: #f0f0f0;
             flex-direction: column;
+            font-size: 16px;
         }
 
         .window {
-            width: 700px;
+            width: 90%;
+            max-width: 700px;
             height: 200px;
             border: 2px solid #000;
             padding: 10px;
             background-color: #fff;
             font-family: Arial, sans-serif;
-            font-size: 20px;
+            font-size: 1rem;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* чтобы текст не исчезал */
-            overflow-y: scroll; /* автопрокрутка */
+            justify-content: flex-start;
+            overflow-y: scroll;
+            position: relative;
         }
 
         .text {
@@ -37,7 +40,7 @@
 
         .word-count, .written-count {
             position: absolute;
-            font-size: 18px;
+            font-size: 0.9rem;
             font-weight: bold;
         }
 
@@ -51,21 +54,24 @@
             right: 20px;
         }
 
-        .controls {
-            position: fixed; /* фиксированное положение */
-            top: 50px; /* отступ сверху */
-            left: 20px; /* отступ справа */
+        /* Контейнер для всех кнопок */
+        .controls-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 10;
         }
 
         .button {
-            padding: 10px 10px;
-            font-size: 10px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            margin-right: 3px; /* Расстояние между кнопками */
+            transition: background-color 0.3s;
         }
 
         .pause-btn {
@@ -83,20 +89,60 @@
         }
 
         #fullscreen-btn {
-            position: absolute;
             background-color: #808080;
             color: white;
             padding: 10px 20px;
-            font-size: 16px;
+            font-size: 1rem;
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            top: 10px;
-            left: 20px;
+            transition: background-color 0.3s;
         }
 
         .fullscreen {
             background-color: #28a745;
+        }
+
+        /* Адаптивные стили */
+        @media (max-width: 768px) {
+            .window {
+                height: 150px;
+                font-size: 1rem;
+            }
+
+            .button {
+                font-size: 0.7rem;
+                padding: 6px 10px;
+            }
+
+            .word-count, .written-count {
+                font-size: 0.8rem;
+            }
+
+            #fullscreen-btn {
+                font-size: 0.9rem;
+                padding: 8px 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                font-size: 14px;
+            }
+
+            .window {
+                height: 120px;
+            }
+
+            .button {
+                font-size: 0.6rem;
+                padding: 4px 8px;
+            }
+
+            #fullscreen-btn {
+                font-size: 0.8rem;
+                padding: 6px 12px;
+            }
         }
     </style>
 </head>
@@ -110,18 +156,18 @@
     <div class="written-count" id="writtenCount">Написано слов: 0</div>
     <div class="word-count" id="wordCount">Осталось слов: 0</div>
 
-    <div class="controls">
+    <!-- Контейнер для всех кнопок -->
+    <div class="controls-container">
+		<button class="button" id="fullscreen-btn">Перейти в полноэкранный режим</button>
         <button class="button speed-btn" id="decreaseSpeedBtn">↓ Уменьшить скорость</button>
         <button class="button pause-btn" id="pauseBtn">Пауза</button>
         <button class="button speed-btn" id="increaseSpeedBtn">↑ Увеличить скорость</button>
     </div>
 
-    <button id="fullscreen-btn">Перейти в полноэкранный режим</button>
-
     <script>
         const textContent = `
 
-TEXT TEXT TEXT
+TEXT
 		`; // Текст для появления
 
         const textElement = document.getElementById("text");
@@ -133,31 +179,27 @@ TEXT TEXT TEXT
         const increaseSpeedBtn = document.getElementById("increaseSpeedBtn");
         const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-        let index = localStorage.getItem("textIndex") ? parseInt(localStorage.getItem("textIndex")) : 0;  // Восстанавливаем позицию текста
-        let textSoFar = localStorage.getItem("textSoFar") || '';  // Восстанавливаем весь текст, который был выведен
+        let index = localStorage.getItem("textIndex") ? parseInt(localStorage.getItem("textIndex")) : 0;
+        let textSoFar = localStorage.getItem("textSoFar") || '';
         let writtenWords = countWords(textSoFar);
         let totalWords = countWords(textContent);
         let typingInterval = null;
         let isPaused = false;
-        let speed = 100; // Начальная скорость (интервал между символами)
+        let speed = 100;
 
-        // Функция для подсчёта слов
         function countWords(text) {
             return text.trim().split(/\s+/).filter(Boolean).length;
         }
 
         function typeText() {
             if (index < textContent.length) {
-                // Добавляем символ
                 textSoFar += textContent.charAt(index);
-                textElement.innerHTML = textSoFar;  // Обновляем отображаемый текст
+                textElement.innerHTML = textSoFar;
                 index++;
 
-                // Сохраняем текущие данные в localStorage
                 localStorage.setItem("textIndex", index);
                 localStorage.setItem("textSoFar", textSoFar);
 
-                // Прокрутка окна вниз, чтобы видеть новый текст
                 windowElement.scrollTop = windowElement.scrollHeight;
 
                 writtenWords = countWords(textSoFar);
@@ -188,7 +230,6 @@ TEXT TEXT TEXT
             }
         }
 
-        // Обработчики для кнопок изменения скорости
         function increaseSpeed() {
             speed = Math.max(10, speed - 10);
             if (!isPaused) {
@@ -205,46 +246,30 @@ TEXT TEXT TEXT
             }
         }
 
-        // Функция для активации полноэкранного режима
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
                 if (document.documentElement.requestFullscreen) {
                     document.documentElement.requestFullscreen();
-                } else if (document.documentElement.mozRequestFullScreen) { // Для Firefox
-                    document.documentElement.mozRequestFullScreen();
-                } else if (document.documentElement.webkitRequestFullscreen) { // Для Chrome, Safari и Opera
-                    document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) { // Для IE/Edge
-                    document.documentElement.msRequestFullscreen();
                 }
                 fullscreenBtn.classList.add('fullscreen');
                 fullscreenBtn.textContent = 'Выход из полноэкранного режима';
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) { // Для Firefox
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) { // Для Chrome, Safari и Opera
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) { // Для IE/Edge
-                    document.msExitFullscreen();
                 }
                 fullscreenBtn.classList.remove('fullscreen');
                 fullscreenBtn.textContent = 'Перейти в полноэкранный режим';
             }
         }
 
-        // Начинаем печатать с уже восстановленным текстом
         textElement.innerHTML = textSoFar;
         startTyping();
 
-        // Обработчики для кнопок
         pauseBtn.addEventListener('click', togglePause);
         decreaseSpeedBtn.addEventListener('click', decreaseSpeed);
         increaseSpeedBtn.addEventListener('click', increaseSpeed);
         fullscreenBtn.addEventListener('click', toggleFullscreen);
 
-        // Обработчик для пробела (пауза)
         document.addEventListener('keydown', (event) => {
             if (event.code === 'Space') {
                 togglePause();
