@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Побуквенное появление текста с паузой и автопрокруткой</title>
+    <title>Побуквенное чтение текста с паузой и автопрокруткой</title>
     <style>
         body {
             height: 100vh;
@@ -50,22 +50,21 @@
         }
 
         .written-count {
-            top: 10px;
+            bottom: 25px;
             right: 20px;
         }
 
-        /* Контейнер для всех кнопок */
         .controls-container {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             display: flex;
-            flex-direction: row; /* Изменено на ряд */
+            flex-direction: row;
             gap: 5px;
             z-index: 10;
-            justify-content: center; /* Для центрирования кнопок */
-            padding: 30px;
+            justify-content: center;
+            padding: 10px;
         }
 
         .button {
@@ -106,13 +105,14 @@
             background-color: #28a745;
         }
 		
-		        /* Кнопка очистки localStorage */
+        /* Кнопка очистки localStorage */
         #clearStorage-btn {
             background-color: #dc3545;
             color: white;
         }
-
-        /* Адаптивные стили */
+		
+		
+		
         @media (max-width: 768px) {
             .window {
                 height: 150px;
@@ -153,21 +153,6 @@
                 padding: 6px 12px;
             }
         }
-
-        /* Медиазапрос для изменения расположения кнопок при повороте устройства */
-        @media (orientation: landscape) {
-            .controls-container {
-                top: 10px; /* Добавление отступа сверху при горизонтальной ориентации */
-                flex-direction: row; /* Кнопки по горизонтали */
-            }
-        }
-
-        @media (orientation: portrait) {
-            .controls-container {
-                top: 0;
-                flex-direction: row; /* Кнопки по горизонтали */
-            }
-        }
     </style>
 </head>
 <body>
@@ -177,24 +162,23 @@
         </div>
     </div>
 
-    <div class="written-count" id="writtenCount">Написано слов: 0</div>
+    <div class="written-count" id="writtenCount">Прочитано слов: 0</div>
     <div class="word-count" id="wordCount">Осталось слов: 0</div>
 
-    <!-- Контейнер для всех кнопок -->
     <div class="controls-container">
         <button class="button" id="fullscreen-btn">🖵</button>
         <button class="button speed-btn" id="decreaseSpeedBtn">↓</button>
         <button class="button pause-btn" id="pauseBtn">▶</button>
         <button class="button speed-btn" id="increaseSpeedBtn">↑</button>
-        <!-- Кнопка очистки localStorage -->
+		        <!-- Кнопка выбора файла -->
+        <button class="button" id="fileSelectBtn">📂</button>
         <button class="button" id="clearStorage-btn">🗑</button>
     </div>
 
-    <script>
-        const textContent = `
-TEXT
-        `; // Текст для появления
+    <input type="file" id="fileInput" accept=".txt" style="display: none;" />
 
+    <script>
+        let textContent = localStorage.getItem("textContent") || ""; // Изначально пустой текст
         const textElement = document.getElementById("text");
         const windowElement = document.getElementById("window");
         const wordCountElement = document.getElementById("wordCount");
@@ -204,6 +188,8 @@ TEXT
         const increaseSpeedBtn = document.getElementById("increaseSpeedBtn");
         const fullscreenBtn = document.getElementById('fullscreen-btn');
         const clearStorageBtn = document.getElementById('clearStorage-btn');
+        const fileInput = document.getElementById("fileInput");
+        const fileSelectBtn = document.getElementById("fileSelectBtn");
 
         let index = localStorage.getItem("textIndex") ? parseInt(localStorage.getItem("textIndex")) : 0;
         let textSoFar = localStorage.getItem("textSoFar") || '';
@@ -230,7 +216,7 @@ TEXT
 
                 writtenWords = countWords(textSoFar);
 
-                writtenCountElement.textContent = `Написано слов: ${writtenWords}`;
+                writtenCountElement.textContent = `Прочитано слов: ${writtenWords}`;
                 wordCountElement.textContent = `Осталось слов: ${totalWords - writtenWords}`;
             }
         }
@@ -288,20 +274,57 @@ TEXT
             }
         }
 
-        // Очистка localStorage
         function clearLocalStorage() {
             localStorage.removeItem("textIndex");
             localStorage.removeItem("textSoFar");
+            localStorage.removeItem("textContent");
             index = 0;
             textSoFar = '';
             writtenWords = 0;
             wordCountElement.textContent = `Осталось слов: ${totalWords}`;
-            writtenCountElement.textContent = `Написано слов: ${writtenWords}`;
+            writtenCountElement.textContent = `Прочитано слов: ${writtenWords}`;
             textElement.innerHTML = '';
         }
 
+        function loadTextFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const fileContent = event.target.result;
+                localStorage.setItem("textContent", fileContent);
+                textContent = fileContent; // Заменяем глобальную переменную
+                totalWords = countWords(textContent);
+                // Очистить состояние
+                localStorage.removeItem("textIndex");
+                localStorage.removeItem("textSoFar");
+                index = 0;
+                textSoFar = '';
+                writtenWords = 0;
+                textElement.innerHTML = textSoFar;
+                wordCountElement.textContent = `Осталось слов: ${totalWords}`;
+                writtenCountElement.textContent = `Прочитано слов: 0`;
+                startTyping(); // Начинаем печатать текст
+            };
+            reader.readAsText(file);
+        }
+
+        // При клике на кнопку "Выбрать файл", открываем диалоговое окно
+        fileSelectBtn.addEventListener("click", function() {
+            fileInput.click();
+        });
+
+        // Слушаем выбор файла
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                loadTextFromFile(file);
+            }
+        });
+
+        // При запуске страницы
         textElement.innerHTML = textSoFar;
-        startTyping();
+        if (textContent) {
+            startTyping();
+        }
 
         pauseBtn.addEventListener('click', togglePause);
         decreaseSpeedBtn.addEventListener('click', decreaseSpeed);
