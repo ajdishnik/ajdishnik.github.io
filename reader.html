@@ -104,7 +104,7 @@
         .fullscreen {
             background-color: #28a745;
         }
-		
+
         /* Кнопка очистки localStorage */
         #clearStorage-btn {
             background-color: #dc3545;
@@ -323,7 +323,8 @@
                 startTyping(); // Начинаем печатать текст
             };
 
-            reader.onerror = function() {
+            reader.onerror = function(event) {
+                console.error("Ошибка при чтении FB2 файла:", event.target.error);
                 alert("Ошибка при чтении файла.");
             };
 
@@ -350,10 +351,13 @@
                     writtenCountElement.textContent = `Прочитано слов: 0`;
                     startTyping();
                 };
-                reader.onerror = function() {
+                reader.onerror = function(event) {
+                    console.error("Ошибка при чтении текстового файла:", event.target.error);
                     alert("Ошибка при чтении файла.");
                 };
                 reader.readAsText(file);
+            } else {
+                alert("Неверный формат файла. Пожалуйста, загрузите .txt или .fb2 файл.");
             }
         }
 
