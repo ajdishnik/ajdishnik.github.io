@@ -110,9 +110,7 @@
             background-color: #dc3545;
             color: white;
         }
-		
-		
-		
+
         @media (max-width: 768px) {
             .window {
                 height: 150px;
@@ -170,12 +168,12 @@
         <button class="button speed-btn" id="decreaseSpeedBtn">↓</button>
         <button class="button pause-btn" id="pauseBtn">▶</button>
         <button class="button speed-btn" id="increaseSpeedBtn">↑</button>
-		        <!-- Кнопка выбора файла -->
+        <!-- Кнопка выбора файла -->
         <button class="button" id="fileSelectBtn">📂</button>
         <button class="button" id="clearStorage-btn">🗑</button>
     </div>
 
-    <input type="file" id="fileInput" accept=".txt" style="display: none;" />
+    <input type="file" id="fileInput" accept=".txt, .fb2" style="display: none;" />
 
     <script>
         let textContent = localStorage.getItem("textContent") || ""; // Изначально пустой текст
@@ -286,13 +284,29 @@
             textElement.innerHTML = '';
         }
 
-        function loadTextFromFile(file) {
+        function loadTextFromFB2(file) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const fileContent = event.target.result;
-                localStorage.setItem("textContent", fileContent);
-                textContent = fileContent; // Заменяем глобальную переменную
+
+                // Парсим FB2 как XML
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(fileContent, "application/xml");
+
+                // Извлекаем текст из XML
+                const body = xmlDoc.getElementsByTagName("body")[0];
+                let contentText = '';
+
+                // Ищем все параграфы
+                const paragraphs = body.getElementsByTagName("p");
+                for (let p of paragraphs) {
+                    contentText += p.textContent + "\n";
+                }
+
+                localStorage.setItem("textContent", contentText);
+                textContent = contentText; // Заменяем глобальную переменную
                 totalWords = countWords(textContent);
+                
                 // Очистить состояние
                 localStorage.removeItem("textIndex");
                 localStorage.removeItem("textSoFar");
@@ -305,6 +319,30 @@
                 startTyping(); // Начинаем печатать текст
             };
             reader.readAsText(file);
+        }
+
+        function loadTextFromFile(file) {
+            if (file.name.endsWith(".fb2")) {
+                loadTextFromFB2(file);
+            } else if (file.name.endsWith(".txt")) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const fileContent = event.target.result;
+                    localStorage.setItem("textContent", fileContent);
+                    textContent = fileContent;
+                    totalWords = countWords(textContent);
+                    localStorage.removeItem("textIndex");
+                    localStorage.removeItem("textSoFar");
+                    index = 0;
+                    textSoFar = '';
+                    writtenWords = 0;
+                    textElement.innerHTML = textSoFar;
+                    wordCountElement.textContent = `Осталось слов: ${totalWords}`;
+                    writtenCountElement.textContent = `Прочитано слов: 0`;
+                    startTyping();
+                };
+                reader.readAsText(file);
+            }
         }
 
         // При клике на кнопку "Выбрать файл", открываем диалоговое окно
