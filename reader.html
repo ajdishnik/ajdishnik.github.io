@@ -176,7 +176,7 @@
     <input type="file" id="fileInput" accept=".txt, .fb2" style="display: none;" />
 
     <script>
-        let textContent = localStorage.getItem("textContent") || ""; // Изначально пустой текст
+        let textContent = localStorage.getItem("textContent") || "";
         const textElement = document.getElementById("text");
         const windowElement = document.getElementById("window");
         const wordCountElement = document.getElementById("wordCount");
@@ -213,7 +213,6 @@
                 windowElement.scrollTop = windowElement.scrollHeight;
 
                 writtenWords = countWords(textSoFar);
-
                 writtenCountElement.textContent = `Прочитано слов: ${writtenWords}`;
                 wordCountElement.textContent = `Осталось слов: ${totalWords - writtenWords}`;
             }
@@ -293,6 +292,12 @@
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(fileContent, "application/xml");
 
+                // Проверяем на ошибки в XML
+                if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                    alert("Ошибка при парсинге FB2 файла.");
+                    return;
+                }
+
                 // Извлекаем текст из XML
                 const body = xmlDoc.getElementsByTagName("body")[0];
                 let contentText = '';
@@ -304,10 +309,9 @@
                 }
 
                 localStorage.setItem("textContent", contentText);
-                textContent = contentText; // Заменяем глобальную переменную
+                textContent = contentText;
                 totalWords = countWords(textContent);
-                
-                // Очистить состояние
+
                 localStorage.removeItem("textIndex");
                 localStorage.removeItem("textSoFar");
                 index = 0;
@@ -318,6 +322,11 @@
                 writtenCountElement.textContent = `Прочитано слов: 0`;
                 startTyping(); // Начинаем печатать текст
             };
+
+            reader.onerror = function() {
+                alert("Ошибка при чтении файла.");
+            };
+
             reader.readAsText(file);
         }
 
@@ -340,6 +349,9 @@
                     wordCountElement.textContent = `Осталось слов: ${totalWords}`;
                     writtenCountElement.textContent = `Прочитано слов: 0`;
                     startTyping();
+                };
+                reader.onerror = function() {
+                    alert("Ошибка при чтении файла.");
                 };
                 reader.readAsText(file);
             }
