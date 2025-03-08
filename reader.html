@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -104,15 +104,20 @@
         .fullscreen {
             background-color: #28a745;
         }
-		
+
         /* Кнопка очистки localStorage */
         #clearStorage-btn {
             background-color: #dc3545;
             color: white;
         }
-		
-		
-		
+
+        /* Новые кнопки для изменения шрифта */
+        #increaseFontSizeBtn,
+        #decreaseFontSizeBtn {
+            background-color: #ffc107;
+            color: white;
+        }
+
         @media (max-width: 768px) {
             .window {
                 height: 150px;
@@ -170,7 +175,10 @@
         <button class="button speed-btn" id="decreaseSpeedBtn">↓</button>
         <button class="button pause-btn" id="pauseBtn">▶</button>
         <button class="button speed-btn" id="increaseSpeedBtn">↑</button>
-		        <!-- Кнопка выбора файла -->
+        <!-- Кнопки изменения размера шрифта -->
+        <button class="button" id="decreaseFontSizeBtn">-</button>
+        <button class="button" id="increaseFontSizeBtn">+</button>
+        <!-- Кнопка выбора файла -->
         <button class="button" id="fileSelectBtn">📂</button>
         <button class="button" id="clearStorage-btn">🗑</button>
     </div>
@@ -191,6 +199,10 @@
         const fileInput = document.getElementById("fileInput");
         const fileSelectBtn = document.getElementById("fileSelectBtn");
 
+        // Новые кнопки для изменения шрифта
+        const decreaseFontSizeBtn = document.getElementById("decreaseFontSizeBtn");
+        const increaseFontSizeBtn = document.getElementById("increaseFontSizeBtn");
+
         let index = localStorage.getItem("textIndex") ? parseInt(localStorage.getItem("textIndex")) : 0;
         let textSoFar = localStorage.getItem("textSoFar") || '';
         let writtenWords = countWords(textSoFar);
@@ -198,6 +210,7 @@
         let typingInterval = null;
         let isPaused = false;
         let speed = 100;
+        let fontSize = 16; // Изначальный размер шрифта
 
         function countWords(text) {
             return text.trim().split(/\s+/).filter(Boolean).length;
@@ -320,6 +333,17 @@
             }
         });
 
+        // Изменение размера шрифта
+        function increaseFontSize() {
+            fontSize += 2;
+            textElement.style.fontSize = fontSize + 'px';
+        }
+
+        function decreaseFontSize() {
+            fontSize = Math.max(10, fontSize - 2);
+            textElement.style.fontSize = fontSize + 'px';
+        }
+
         // При запуске страницы
         textElement.innerHTML = textSoFar;
         if (textContent) {
@@ -331,6 +355,10 @@
         increaseSpeedBtn.addEventListener('click', increaseSpeed);
         fullscreenBtn.addEventListener('click', toggleFullscreen);
         clearStorageBtn.addEventListener('click', clearLocalStorage);
+
+        // Добавляем события для кнопок изменения шрифта
+        decreaseFontSizeBtn.addEventListener('click', decreaseFontSize);
+        increaseFontSizeBtn.addEventListener('click', increaseFontSize);
 
         document.addEventListener('keydown', (event) => {
             if (event.code === 'Space') {
