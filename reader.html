@@ -282,16 +282,27 @@
             reader.readAsText(file);
         }
 
-        // Функция для перехода в полноэкранный режим
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-                fullscreenBtn.textContent = '❌'; // Меняем иконку на крестик
-            } else {
-                document.exitFullscreen();
-                fullscreenBtn.textContent = '🖵'; // Меняем иконку на исходную
-            }
-        }
+		// Функция для перехода в полноэкранный режим
+		function toggleFullscreen() {
+			const element = document.documentElement;
+
+			if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+				if (element.requestFullscreen) {
+					element.requestFullscreen();
+				} else if (element.webkitRequestFullscreen) {
+					element.webkitRequestFullscreen(); // Используем для Safari
+				}
+				fullscreenBtn.textContent = '❌'; // Меняем иконку на крестик
+			} else {
+				if (document.exitFullscreen) {
+					document.exitFullscreen();
+				} else if (document.webkitExitFullscreen) {
+					document.webkitExitFullscreen(); // Используем для Safari
+				}
+				fullscreenBtn.textContent = '🖵'; // Меняем иконку на исходную
+			}
+		}
+
 
         // При клике на кнопку "Выбрать файл", открываем диалоговое окно
         fileSelectBtn.addEventListener("click", function() {
@@ -347,3 +358,4 @@
     </script>
 </body>
 </html>
+
