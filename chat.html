@@ -12,6 +12,7 @@ body, html {
     font-family: Arial, sans-serif;
     background: #f2f2f2;
     overflow: hidden;
+    transition: background 0.3s;
 }
 
 .chat-wrapper {
@@ -24,6 +25,7 @@ body, html {
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     overflow: hidden;
+    transition: background 0.3s;
 }
 
 .chat-title {
@@ -34,12 +36,29 @@ body, html {
     padding: 15px;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
     flex-shrink: 0;
+    position: relative;
 }
+
+#themeToggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background: #4CAF50;
+    color: white;
+    font-size: 14px;
+}
+
+#themeToggle:hover { background: #45a049; }
 
 .chat-box {
     flex: 1;
     overflow-y: auto;
     padding: 10px;
+    transition: background 0.3s;
 }
 
 .message {
@@ -49,13 +68,20 @@ body, html {
     margin-bottom: 8px;
     max-width: 75%;
     word-break: break-word;
+    transition: background 0.3s, color 0.3s;
 }
+
+.message-text div {
+    white-space: pre-wrap; /* сохраняет переносы строк из текста */
+}
+
 
 .message-time {
     font-size: 11px;
     color: #666;
     text-align: right;
     margin-top: 4px;
+    transition: color 0.3s;
 }
 
 .edit-btn {
@@ -65,6 +91,7 @@ body, html {
     cursor: pointer;
     color: #555;
     margin-top: 4px;
+    transition: color 0.3s;
 }
 
 .edit-btn:hover { color: black; }
@@ -74,6 +101,7 @@ body, html {
     background: #fff;
     flex-shrink: 0;
     border-top: 1px solid #ddd;
+    transition: background 0.3s, border-color 0.3s;
 }
 
 .input-area {
@@ -87,6 +115,7 @@ input {
     border-radius: 5px;
     border: 1px solid #ccc;
     font-size: 16px;
+    transition: background 0.3s, color 0.3s, border-color 0.3s;
 }
 
 button {
@@ -96,6 +125,7 @@ button {
     background: #4CAF50;
     color: white;
     cursor: pointer;
+    transition: background 0.3s;
 }
 
 button:hover { background: #45a049; }
@@ -107,6 +137,7 @@ button:hover { background: #45a049; }
     padding-left: 6px;
     margin-bottom: 4px;
     cursor: pointer;
+    transition: color 0.3s, border-color 0.3s;
 }
 
 .reply-preview {
@@ -118,6 +149,7 @@ button:hover { background: #45a049; }
     border-radius:5px;
     font-size:13px;
     position:relative;
+    transition: background 0.3s, border-color 0.3s;
 }
 
 .reply-preview #cancelReply {
@@ -125,13 +157,44 @@ button:hover { background: #45a049; }
     right:5px;
     cursor:pointer;
 }
+
+/* Тёмная тема */
+body.dark, .dark .chat-wrapper {
+    background: #1e1e1e;
+    color: #ddd;
+}
+
+.dark .chat-box { background: #2c2c2c; }
+.dark .message { background: #3a3a3a; color: #ddd; }
+.dark .message-time { color: #aaa; }
+.dark .edit-btn { color: #ccc; }
+.dark .edit-btn:hover { color: white; }
+.dark .input-area-wrapper { background: #2c2c2c; border-top: 1px solid #555; }
+.dark input { background: #3a3a3a; color: #ddd; border: 1px solid #555; }
+.dark button { background: #4CAF50; color: white; }
+.dark .reply-text { color: #ccc; border-color: #777; }
+.dark .reply-preview { background:#3a3a3a; border-color:#4CAF50; color: #ddd; }
+/* Тёмная тема для кнопок редактирования и ответа */
+.dark .edit-btn {
+    color: #aaa;           /* светло-серый текст вместо зеленого */
+    background: none;      /* убираем фон */
+    padding: 2px 5px;      /* делаем их компактнее */
+    font-size: 12px;       /* фиксируем размер шрифта */
+}
+
+.dark .edit-btn:hover {
+    color: #fff;           /* подсветка при наведении */
+    background: rgba(255, 255, 255, 0.1); /* лёгкий фон при ховере */
+}
+
+
 </style>
 </head>
 <body>
 
 <div class="chat-wrapper">
     <div class="chat-title">Чат-заметки</div>
-
+	<button id="themeToggle">🌙</button>
     <div class="chat-box" id="chatBox"></div>
 
     <div class="input-area-wrapper">
@@ -306,6 +369,14 @@ function copyChat() {
         .then(() => alert("Чат скопирован в формате Markdown!"))
         .catch(err => alert("Ошибка при копировании: " + err));
 }
+
+// Переключение темы
+const themeBtn = document.getElementById('themeToggle');
+themeBtn.onclick = () => {
+    document.body.classList.toggle('dark');
+    themeBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+};
+
 
 
 </script>
