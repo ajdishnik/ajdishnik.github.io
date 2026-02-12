@@ -292,11 +292,19 @@ function sendMessage() {
         preview.style.display = "block";
     };
 
+	const deleteBtn = document.createElement("button");
+	deleteBtn.className = "edit-btn";
+	deleteBtn.textContent = "🗑️ Удалить";
+	deleteBtn.onclick = function () {
+		if (confirm("Вы действительно хотите удалить это сообщение?")) {
+			message.remove();
+		}
+	};
     message.appendChild(textDiv);
     message.appendChild(timeDiv);
     message.appendChild(editBtn);
     message.appendChild(replyBtn);
-
+	message.appendChild(deleteBtn);
     chatBox.appendChild(message);
 
     input.value = "";
