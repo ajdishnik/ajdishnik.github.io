@@ -135,6 +135,40 @@ button:hover { background: #45a049; }
     right:5px;
     cursor:pointer;
 }
+
+
+/* Адаптация для экранов меньше 500px */
+@media (max-width: 500px) {
+    .chat-container {
+        width: 95%;       /* почти весь экран */
+        height: 80vh;     /* чуть меньше, чем весь экран */
+    }
+
+    .chat-title {
+        font-size: 22px;  /* чуть меньше заголовок */
+    }
+
+    .message {
+        max-width: 100%;  /* сообщения занимают всю ширину */
+        font-size: 14px;  /* немного меньше шрифт */
+    }
+
+    .input-area {
+        flex-direction: column; /* input и кнопки друг под другом */
+        gap: 5px;               /* отступы поменьше */
+    }
+
+    .input-area input, .input-area button {
+        width: 100%;    /* растягиваем input и кнопки */
+    }
+
+    .reply-preview {
+        font-size: 12px;  /* уменьшаем текст превью */
+    }
+}
+
+
+
 </style>
 </head>
 
