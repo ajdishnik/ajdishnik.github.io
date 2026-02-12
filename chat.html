@@ -8,55 +8,59 @@
 * { box-sizing: border-box; }
 
 body {
-    margin: 0;
     font-family: Arial, sans-serif;
     background: #f2f2f2;
     display: flex;
     justify-content: center;
+    align-items: flex-start;
+    padding-top: 30px;
+    margin: 0;
 }
 
 .chat-wrapper {
     display: flex;
     flex-direction: column;
-    width: 100%;
-    max-width: 500px;
-    height: 100%;
-    padding: 0 10px;
+    align-items: center;
 }
 
 .chat-title {
-    text-align: center;
     font-size: 28px;
     font-weight: bold;
     color: #4CAF50;
-    margin: 10px 0;
+    margin-bottom: 15px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
 }
 
 .chat-container {
-    display: flex;
-    flex-direction: column;
+    width: 400px;
+    /* height: 600px;  убираем */
+    max-width: 100%;
     background: white;
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    flex: 1; /* занимает всё свободное место */
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
 .chat-box {
     flex: 1;
-    overflow-y: auto;
     padding: 10px;
+    overflow-y: auto;
+    border-bottom: 1px solid #ddd;
 }
-
 
 .message {
     background: #e3e3ff;
     padding: 8px 12px;
     border-radius: 15px;
     margin-bottom: 8px;
-    max-width: 100%; /* под мобильный экран */
+    max-width: 75%;
     position: relative;
-    word-wrap: break-word;
+
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .message-time {
@@ -78,18 +82,15 @@ body {
 .edit-btn:hover { color: black; }
 
 .input-area-wrapper {
-    position: sticky;
-    bottom: 0;
-    background: white;
-    border-top: 1px solid #ddd;
-    padding: 10px;
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* превью сверху, input + кнопка снизу */
+    padding: 10px;
 }
 
 .input-area {
     display: flex;
-    gap: 5px;
+    flex-direction: row; /* input слева, кнопка справа */
+    gap: 10px; /* отступ между полем и кнопкой */
 }
 
 input {
@@ -100,7 +101,8 @@ input {
 }
 
 button {
-    padding: 8px 10px;
+    margin-left: 5px;
+    padding: 8px 12px;
     border: none;
     border-radius: 5px;
     background: #4CAF50;
@@ -129,29 +131,10 @@ button:hover { background: #45a049; }
     font-size:13px;
     position:relative;
 }
-
 .reply-preview #cancelReply {
     position:absolute;
     right:5px;
     cursor:pointer;
-}
-
-/* Мобильная адаптивность */
-@media (max-width: 480px) {
-    .chat-title {
-        font-size: 24px;
-    }
-    input, button {
-        font-size: 12px;
-        padding: 6px;
-    }
-    .message {
-        padding: 6px 10px;
-        font-size: 14px;
-    }
-    .edit-btn {
-        font-size: 10px;
-    }
 }
 </style>
 </head>
@@ -329,6 +312,17 @@ function copyChat() {
         .then(() => alert("Чат скопирован в буфер обмена!"))
         .catch(err => alert("Ошибка при копировании: " + err));
 }
+
+function setChatHeight() {
+    const chatContainer = document.querySelector('.chat-container');
+    chatContainer.style.height = window.innerHeight * 0.8 + 'px'; // 80% от высоты экрана
+}
+
+// Инициализация
+setChatHeight();
+
+// Обновление при изменении размера окна
+window.addEventListener('resize', setChatHeight);
 
 
 </script>
