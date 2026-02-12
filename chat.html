@@ -11,7 +11,7 @@ body, html {
     height: 100%;
     font-family: Arial, sans-serif;
     background: #f2f2f2;
-    overflow: hidden; /* убираем скролл страницы */
+    overflow: hidden;
 }
 
 .chat-wrapper {
@@ -58,10 +58,21 @@ body, html {
     margin-top: 4px;
 }
 
+.edit-btn {
+    font-size: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #555;
+    margin-top: 4px;
+}
+
+.edit-btn:hover { color: black; }
+
 .input-area-wrapper {
     padding: 10px;
     background: #fff;
-    flex-shrink: 0; /* фиксируем поле ввода */
+    flex-shrink: 0;
     border-top: 1px solid #ddd;
 }
 
@@ -88,6 +99,32 @@ button {
 }
 
 button:hover { background: #45a049; }
+
+.reply-text {
+    font-size: 12px;
+    color: #555;
+    border-left: 2px solid #aaa;
+    padding-left: 6px;
+    margin-bottom: 4px;
+    cursor: pointer;
+}
+
+.reply-preview {
+    display: none;
+    background:#f0f0f0;
+    padding:5px 8px;
+    border-left:3px solid #4CAF50;
+    margin-bottom:5px;
+    border-radius:5px;
+    font-size:13px;
+    position:relative;
+}
+
+.reply-preview #cancelReply {
+    position:absolute;
+    right:5px;
+    cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -98,9 +135,14 @@ button:hover { background: #45a049; }
     <div class="chat-box" id="chatBox"></div>
 
     <div class="input-area-wrapper">
+        <div class="reply-preview" id="replyPreview">
+            <span id="replyText"></span>
+            <span id="cancelReply">❌</span>
+        </div>
         <div class="input-area">
             <input type="text" id="messageInput" placeholder="Введите сообщение...">
             <button onclick="sendMessage()">Отправить</button>
+            <button onclick="copyChat()">💾</button>
         </div>
     </div>
 </div>
@@ -117,29 +159,140 @@ function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
+    const replyPreview = document.getElementById("replyPreview");
+    replyPreview.style.display = "none";
+    let replyText = "";
+    if (input.dataset.replyTo) {
+        replyText = input.dataset.replyTo;
+        delete input.dataset.replyTo;
+    }
+
     const message = document.createElement("div");
     message.className = "message";
 
+    const textDiv = document.createElement("div");
+    textDiv.className = "message-text";
+
+    if (replyText) {
+        const replyDiv = document.createElement("div");
+        replyDiv.className = "reply-text";
+        replyDiv.textContent = "Ответ на: " + replyText;
+        replyDiv.onclick = function () {
+            const messages = Array.from(document.querySelectorAll(".message"));
+            for (const msg of messages) {
+                const mainTextDiv = msg.querySelector(".message-text div:last-child");
+                if (mainTextDiv && mainTextDiv.textContent === replyText) {
+                    msg.scrollIntoView({ behavior: "smooth", block: "center" });
+                    msg.style.background = "#d0f0d0";
+                    setTimeout(() => msg.style.background = "#e3e3ff", 1000);
+                    break;
+                }
+            }
+        };
+        textDiv.appendChild(replyDiv);
+    }
+
     const mainText = document.createElement("div");
     mainText.textContent = text;
+    textDiv.appendChild(mainText);
 
     const timeDiv = document.createElement("div");
     timeDiv.className = "message-time";
     timeDiv.textContent = getCurrentTime();
 
-    message.appendChild(mainText);
+    const editBtn = document.createElement("button");
+    editBtn.className = "edit-btn";
+    editBtn.textContent = "✏️ Редактировать";
+    editBtn.onclick = function () { editMessage(message); };
+
+    const replyBtn = document.createElement("button");
+    replyBtn.className = "edit-btn";
+    replyBtn.textContent = "💬 Ответить";
+    replyBtn.onclick = function () {
+        const inputField = document.getElementById("messageInput");
+        const preview = document.getElementById("replyPreview");
+        const previewText = document.getElementById("replyText");
+
+        inputField.focus();
+        inputField.dataset.replyTo = mainText.textContent;
+
+        previewText.textContent = mainText.textContent.length > 50 
+            ? mainText.textContent.slice(0, 20) + "..." 
+            : mainText.textContent;
+        preview.style.display = "block";
+    };
+
+    message.appendChild(textDiv);
     message.appendChild(timeDiv);
+    message.appendChild(editBtn);
+    message.appendChild(replyBtn);
 
     chatBox.appendChild(message);
+
     input.value = "";
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+function editMessage(messageContainer) {
+    const textDiv = messageContainer.querySelector(".message-text");
+    const mainText = textDiv.querySelector("div:last-child").textContent;
+
+    const textarea = document.createElement("textarea");
+    textarea.value = mainText;
+    textarea.style.width = "100%";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "Сохранить";
+    saveBtn.style.marginTop = "5px";
+
+    const replyDiv = textDiv.querySelector(".reply-text");
+    if (replyDiv) replyDiv.remove();
+    textDiv.replaceWith(textarea);
+    messageContainer.appendChild(saveBtn);
+
+    saveBtn.onclick = function () {
+        const newTextDiv = document.createElement("div");
+        newTextDiv.className = "message-text";
+
+        if (replyDiv) newTextDiv.appendChild(replyDiv);
+
+        const mainTextDiv = document.createElement("div");
+        mainTextDiv.textContent = textarea.value;
+        newTextDiv.appendChild(mainTextDiv);
+
+        textarea.replaceWith(newTextDiv);
+        saveBtn.remove();
+    };
+}
+
+document.getElementById("cancelReply").onclick = function () {
+    const inputField = document.getElementById("messageInput");
+    const replyPreview = document.getElementById("replyPreview");
+    delete inputField.dataset.replyTo;
+    replyPreview.style.display = "none";
+};
+
 document.getElementById("messageInput").addEventListener("keydown", function(e){
     if(e.key === "Enter") sendMessage();
 });
+
+function copyChat() {
+    const chatBox = document.getElementById("chatBox");
+    let chatText = "";
+
+    chatBox.querySelectorAll(".message").forEach(msg => {
+        const mainText = msg.querySelector(".message-text div:last-child").textContent;
+        const replyDiv = msg.querySelector(".reply-text");
+        const replyText = replyDiv ? "Ответ на: " + replyDiv.textContent.replace("Ответ на: ","") + "\n" : "";
+        const time = msg.querySelector(".message-time").textContent;
+        chatText += replyText + mainText + " (" + time + ")\n";
+    });
+
+    navigator.clipboard.writeText(chatText)
+        .then(() => alert("Чат скопирован в буфер обмена!"))
+        .catch(err => alert("Ошибка при копировании: " + err));
+}
 </script>
 
 </body>
 </html>
-
