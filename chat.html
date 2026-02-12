@@ -294,7 +294,7 @@ function sendMessage() {
 
 	const deleteBtn = document.createElement("button");
 	deleteBtn.className = "edit-btn";
-	deleteBtn.textContent = "🗑️ Удалить";
+	deleteBtn.textContent = "🗑️";
 	deleteBtn.onclick = function () {
 		if (confirm("Вы действительно хотите удалить это сообщение?")) {
 			message.remove();
