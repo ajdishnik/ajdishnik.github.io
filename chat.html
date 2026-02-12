@@ -173,24 +173,30 @@ function sendMessage() {
     const textDiv = document.createElement("div");
     textDiv.className = "message-text";
 
-    if (replyText) {
-        const replyDiv = document.createElement("div");
-        replyDiv.className = "reply-text";
-        replyDiv.textContent = "Ответ на: " + replyText;
-        replyDiv.onclick = function () {
-            const messages = Array.from(document.querySelectorAll(".message"));
-            for (const msg of messages) {
-                const mainTextDiv = msg.querySelector(".message-text div:last-child");
-                if (mainTextDiv && mainTextDiv.textContent === replyText) {
-                    msg.scrollIntoView({ behavior: "smooth", block: "center" });
-                    msg.style.background = "#d0f0d0";
-                    setTimeout(() => msg.style.background = "#e3e3ff", 1000);
-                    break;
-                }
-            }
-        };
-        textDiv.appendChild(replyDiv);
-    }
+	if (replyText) {
+		const replyDiv = document.createElement("div");
+		replyDiv.className = "reply-text";
+
+		// обрезаем текст до 50 символов
+		const shortReply = replyText.length > 50 ? replyText.slice(0, 50) + "..." : replyText;
+		replyDiv.textContent = "Ответ на: " + shortReply;
+
+		// скролл к сообщению при клике
+		replyDiv.onclick = function () {
+			const messages = Array.from(document.querySelectorAll(".message"));
+			for (const msg of messages) {
+				const mainTextDiv = msg.querySelector(".message-text div:last-child");
+				if (mainTextDiv && mainTextDiv.textContent === replyText) {
+					msg.scrollIntoView({ behavior: "smooth", block: "center" });
+					msg.style.background = "#d0f0d0";
+					setTimeout(() => msg.style.background = "#e3e3ff", 1000);
+					break;
+				}
+			}
+		};
+
+		textDiv.appendChild(replyDiv);
+	}
 
     const mainText = document.createElement("div");
     mainText.textContent = text;
