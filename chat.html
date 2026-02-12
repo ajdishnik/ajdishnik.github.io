@@ -350,37 +350,45 @@ function copyChat() {
     let chatText = "";
 
     chatBox.querySelectorAll(".message").forEach(msg => {
-        // Получаем текст основного сообщения
         let mainText = "";
         const textDiv = msg.querySelector(".message-text");
         if (!textDiv) return;
 
         const textarea = msg.querySelector("textarea");
+
         if (textarea) {
             mainText = textarea.value;
         } else {
             const mainDiv = textDiv.querySelector("div:last-child");
-            mainText = mainDiv ? mainDiv.textContent : "";
+            mainText = mainDiv ? mainDiv.innerText : "";
         }
 
-        // Получаем текст цитаты, если есть
+        // === ЦИТАТА ===
         const replyDiv = msg.querySelector(".reply-text");
-        const replyText = replyDiv ? replyDiv.textContent.replace("Ответ на: ", "") : "";
+        const replyText = replyDiv ? replyDiv.innerText : "";
 
-        // Форматируем текст
+        // === ВРЕМЯ ===
+        const timeDiv = msg.querySelector(".message-time");
+        const time = timeDiv ? " `" + timeDiv.textContent + "`" : "";
+
+        // Добавляем цитату (>>)
         if (replyText) {
-            // Добавляем каждую строку цитаты с ">"
             replyText.split("\n").forEach(line => {
-                chatText += ">" + line + "\n";
+                chatText += ">>" + line + "\n";
             });
         }
 
-        // Основное сообщение тоже добавляем с ">"
-        mainText.split("\n").forEach(line => {
-            chatText += ">" + line + "\n";
+        // === Основное сообщение (>) ===
+        const mainLines = mainText.split("\n");
+
+        mainLines.forEach((line, index) => {
+            if (index === mainLines.length - 1) {
+                chatText += ">" + line + time + "\n";
+            } else {
+                chatText += ">" + line + "\n";
+            }
         });
 
-        // Разделитель между сообщениями
         chatText += "\n";
     });
 
@@ -388,6 +396,8 @@ function copyChat() {
         .then(() => alert("Чат скопирован в буфер обмена!"))
         .catch(err => alert("Ошибка при копировании: " + err));
 }
+
+
 
 
 // Переключение темы
