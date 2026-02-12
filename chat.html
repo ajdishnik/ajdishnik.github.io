@@ -289,15 +289,25 @@ function copyChat() {
     chatBox.querySelectorAll(".message").forEach(msg => {
         const mainText = msg.querySelector(".message-text div:last-child").textContent;
         const replyDiv = msg.querySelector(".reply-text");
-        const replyText = replyDiv ? "Ответ на: " + replyDiv.textContent.replace("Ответ на: ","") + "\n" : "";
         const time = msg.querySelector(".message-time").textContent;
-        chatText += replyText + mainText + " (" + time + ")\n";
+
+        let replyText = "";
+        if (replyDiv) {
+            // Текст на который отвечают, в блок кода
+            const originalText = replyDiv.textContent.replace("Ответ на: ", "");
+            replyText = `> Ответ на:  \`\`\`${originalText}\`\`\`\n`;
+        }
+
+        // Основное сообщение с цитатой
+        chatText += replyText + `> ${mainText} \`${time}\`\n\n`;
     });
 
     navigator.clipboard.writeText(chatText)
-        .then(() => alert("Чат скопирован в буфер обмена!"))
+        .then(() => alert("Чат скопирован в формате Markdown!"))
         .catch(err => alert("Ошибка при копировании: " + err));
 }
+
+
 </script>
 
 </body>
