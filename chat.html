@@ -350,25 +350,45 @@ function copyChat() {
     let chatText = "";
 
     chatBox.querySelectorAll(".message").forEach(msg => {
-        const mainText = msg.querySelector(".message-text div:last-child").textContent;
-        const replyDiv = msg.querySelector(".reply-text");
-        const time = msg.querySelector(".message-time").textContent;
+        // Получаем текст основного сообщения
+        let mainText = "";
+        const textDiv = msg.querySelector(".message-text");
+        if (!textDiv) return;
 
-        let replyText = "";
-        if (replyDiv) {
-            // Текст на который отвечают, в блок кода
-            const originalText = replyDiv.textContent.replace("Ответ на: ", "");
-            replyText = `>> Ответ на:  \`\`\`${originalText}\`\`\`\n`;
+        const textarea = msg.querySelector("textarea");
+        if (textarea) {
+            mainText = textarea.value;
+        } else {
+            const mainDiv = textDiv.querySelector("div:last-child");
+            mainText = mainDiv ? mainDiv.textContent : "";
         }
 
-        // Основное сообщение с цитатой
-        chatText += replyText + `> ${mainText} \`${time}\`\n\n`;
+        // Получаем текст цитаты, если есть
+        const replyDiv = msg.querySelector(".reply-text");
+        const replyText = replyDiv ? replyDiv.textContent.replace("Ответ на: ", "") : "";
+
+        // Форматируем текст
+        if (replyText) {
+            // Добавляем каждую строку цитаты с ">"
+            replyText.split("\n").forEach(line => {
+                chatText += ">" + line + "\n";
+            });
+        }
+
+        // Основное сообщение тоже добавляем с ">"
+        mainText.split("\n").forEach(line => {
+            chatText += ">" + line + "\n";
+        });
+
+        // Разделитель между сообщениями
+        chatText += "\n";
     });
 
     navigator.clipboard.writeText(chatText)
-        .then(() => alert("Чат скопирован в формате Markdown!"))
+        .then(() => alert("Чат скопирован в буфер обмена!"))
         .catch(err => alert("Ошибка при копировании: " + err));
 }
+
 
 // Переключение темы
 const themeBtn = document.getElementById('themeToggle');
