@@ -318,6 +318,9 @@ function editMessage(messageContainer) {
     const textarea = document.createElement("textarea");
     textarea.value = mainText;
     textarea.style.width = "100%";
+    textarea.style.maxHeight = "200px";   // максимальная высота
+    textarea.style.resize = "vertical";   // разрешаем вертикальное растягивание
+    textarea.style.overflowY = "auto";    // вертикальная прокрутка при переполнении
 
     const saveBtn = document.createElement("button");
     saveBtn.textContent = "Сохранить";
@@ -325,8 +328,15 @@ function editMessage(messageContainer) {
 
     const replyDiv = textDiv.querySelector(".reply-text");
     if (replyDiv) replyDiv.remove();
+
     textDiv.replaceWith(textarea);
     messageContainer.appendChild(saveBtn);
+
+    // Авто-расширение по тексту
+    textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    });
 
     saveBtn.onclick = function () {
         const newTextDiv = document.createElement("div");
@@ -342,6 +352,7 @@ function editMessage(messageContainer) {
         saveBtn.remove();
     };
 }
+
 
 document.getElementById("cancelReply").onclick = function () {
     const inputField = document.getElementById("messageInput");
