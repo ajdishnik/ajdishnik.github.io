@@ -86,6 +86,7 @@ body, html {
 }
 
 .edit-btn {
+	padding: 2px 5px; 
     font-size: 12px;
     background: none;
     border: none;
@@ -164,6 +165,16 @@ body.dark, .dark .chat-wrapper {
     background: #1e1e1e;
     color: #ddd;
 }
+
+
+.message.highlight {
+    background: #d0f0d0; /* светлая подсветка */
+}
+
+body.dark .message.highlight {
+    background: #555;    /* подсветка для тёмной темы */
+}
+
 
 .dark .chat-box { background: #2c2c2c; }
 .dark .message { background: #3a3a3a; color: #ddd; }
@@ -252,8 +263,12 @@ function sendMessage() {
 				const mainTextDiv = msg.querySelector(".message-text div:last-child");
 				if (mainTextDiv && mainTextDiv.textContent === replyText) {
 					msg.scrollIntoView({ behavior: "smooth", block: "center" });
-					msg.style.background = "#d0f0d0";
-					setTimeout(() => msg.style.background = "#e3e3ff", 1000);
+
+					msg.classList.add("highlight");   // включаем подсветку
+					setTimeout(() => {
+						msg.classList.remove("highlight"); // убираем подсветку через 1 сек
+					}, 1000);
+
 					break;
 				}
 			}
@@ -321,7 +336,11 @@ function editMessage(messageContainer) {
     textarea.style.maxHeight = "200px";   // максимальная высота
     textarea.style.resize = "vertical";   // разрешаем вертикальное растягивание
     textarea.style.overflowY = "auto";    // вертикальная прокрутка при переполнении
-
+	// Размер текста и удобочитаемость
+	textarea.style.fontSize = "16px";
+	textarea.style.lineHeight = "1.5";
+	textarea.style.fontFamily = "Arial, sans-serif";
+	textarea.style.padding = "8px";
     const saveBtn = document.createElement("button");
     saveBtn.textContent = "Сохранить";
     saveBtn.style.marginTop = "5px";
@@ -417,17 +436,12 @@ function copyChat() {
         .catch(err => alert("Ошибка при копировании: " + err));
 }
 
-
-
-
 // Переключение темы
 const themeBtn = document.getElementById('themeToggle');
 themeBtn.onclick = () => {
     document.body.classList.toggle('dark');
     themeBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
 };
-
-
 
 </script>
 
