@@ -998,7 +998,7 @@ function startSearch() {
     permB = 0n;
   }
 
-  const nw = Math.max(1, Math.min(16, (navigator.hardwareConcurrency || 4)));
+  const nw = 2;
   workerCountGlobal = nw;
 
   const blob = new Blob([buildWorkerCode()], { type: 'application/javascript' });
