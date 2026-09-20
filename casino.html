@@ -21,7 +21,7 @@
   }
 
   .casino {
-    width: 520px;
+    width: 540px;
     padding: 24px;
     background: linear-gradient(180deg, #1e1e2a, #16161d);
     border-radius: 20px;
@@ -213,6 +213,67 @@
   .result.win .key  { color: #8fffb8; }
   .result.win .addr { color: #a8e0ff; }
 
+  /* Панель текущего блока */
+  .current-block {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #0a0a10;
+    border: 1px solid #2a2a36;
+    border-radius: 10px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    text-align: left;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .current-block.active {
+    border-color: #ffd54a;
+    box-shadow: 0 0 15px rgba(255,213,74,0.15);
+  }
+
+  .cb-label {
+    color: #8b949e;
+    font-size: 10px;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .cb-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .cb-from, .cb-to {
+    color: #7ab8ff;
+    background: #14141c;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    word-break: break-all;
+    border: 1px solid #1e1e28;
+  }
+
+  .cb-arrow {
+    color: #555;
+    font-size: 12px;
+  }
+
+  .cb-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #555;
+  }
+
+  .cb-meta b {
+    color: #8b949e;
+    font-weight: normal;
+  }
+
   .progress-wrap {
     margin-top: 14px;
     height: 8px;
@@ -304,6 +365,19 @@
 
   <div class="result" id="result">
     Нажмите «Крутить», чтобы начать поиск
+  </div>
+
+  <div class="current-block" id="currentBlock">
+    <div class="cb-label">🔍 Последний выданный блок</div>
+    <div class="cb-range">
+      <span class="cb-from" id="cbFrom">—</span>
+      <span class="cb-arrow">→</span>
+      <span class="cb-to" id="cbTo">—</span>
+    </div>
+    <div class="cb-meta">
+      <span>воркер: <b id="cbWorker">—</b></span>
+      <span>длина: <b id="cbLen">—</b></span>
+    </div>
   </div>
 
   <div class="progress-wrap">
@@ -443,7 +517,7 @@ function addressToH160Hex(addr) {
 }
 
 /* =========================================================================
-   Утилиты: GCD, случайный BigInt, взаимно простой коэффициент
+   Утилиты
    ========================================================================= */
 function gcd(a, b) {
   a = a < 0n ? -a : a;
@@ -453,7 +527,6 @@ function gcd(a, b) {
 }
 
 function randomBigInt(bits) {
-  // случайное BigInt размером bits бит
   const bytes = Math.ceil(bits / 8);
   const rnd = new Uint8Array(bytes);
   crypto.getRandomValues(rnd);
@@ -463,7 +536,6 @@ function randomBigInt(bits) {
 }
 
 function randomCoprime(n) {
-  // Случайный a из [n/2, n), взаимно простой с n
   if (n <= 1n) return 1n;
   const half = n / 2n;
   for (let attempt = 0; attempt < 200; attempt++) {
@@ -471,10 +543,17 @@ function randomCoprime(n) {
     if (a <= 1n) a = 2n;
     if (gcd(a, n) === 1n) return a;
   }
-  // fallback: ищем последовательно
   let a = half + 1n;
   while (gcd(a, n) !== 1n) a += 1n;
   return a;
+}
+
+/* Форматирование hex: обрезаем середину если слишком длинный */
+function shortHex(hex, maxLen) {
+  if (!maxLen) maxLen = 20;
+  if (hex.length <= maxLen) return hex;
+  const half = Math.floor((maxLen - 2) / 2);
+  return hex.slice(0, half) + '…' + hex.slice(-half);
 }
 
 /* =========================================================================
@@ -589,7 +668,6 @@ function buildWorkerCode() {
     "  id=d.id;",
     "  running=true;",
     "  lastReport=Date.now();",
-    "  // Запрашиваем блоки у главного потока, пока он их даёт",
     "  while (running) {",
     "    self.postMessage({type:'needBlock', worker:id});",
     "    const blockData = await new Promise((resolve) => {",
@@ -607,11 +685,11 @@ function buildWorkerCode() {
     "    });",
     "    if (!running || !blockData || blockData.cmd === 'stop') break;",
     "    if (blockData.cmd === 'noMoreBlocks') {",
-    "      self.postMessage({type:'workerDone', worker:id});",
     "      if (pendingCount > 0n) {",
     "        self.postMessage({type:'STAT', count:pendingCount.toString()});",
     "        pendingCount=0n;",
     "      }",
+    "      self.postMessage({type:'workerDone', worker:id});",
     "      return;",
     "    }",
     "    const bStart = BigInt('0x' + blockData.start);",
@@ -643,7 +721,7 @@ let workers = [];
 let lastCounts = new Map();
 let startTime = 0;
 let globalCount = 0n;
-let totalBlocks = 0n;
+let totalBlocksBig = 0n;
 let blocksDone = 0n;
 let rangeSizeGlobal = 1n;
 let rateTimer = null;
@@ -657,7 +735,6 @@ let blockSizeGlobal = 10000n;
 let permA = 0n;
 let permB = 0n;
 let nextBlockIdx = 0n;
-let totalBlocksBig = 0n;
 
 function randomEmoji() {
   return EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
@@ -736,10 +813,9 @@ function validateInputs() {
 
   let cls = 'h160-info ok';
   let warn = '';
-  // Предупреждение для очень больших диапазонов
   if (size > 10000000000n) {
     cls = 'h160-info warn';
-    warn = ' ⚠️ огромный диапазон — ключ вряд ли найдётся';
+    warn = ' ⚠️ огромный диапазон';
   }
 
   $('h160Info').textContent =
@@ -794,6 +870,33 @@ function recalcGlobal() {
   for (const v of lastCounts.values()) globalCount += v;
 }
 
+/* Обновление панели текущего блока */
+function updateCurrentBlock(bStart, bEnd, workerId) {
+  const fromHex = bStart.toString(16);
+  const toHex = bEnd.toString(16);
+  $('cbFrom').textContent = '0x' + shortHex(fromHex, 20);
+  $('cbFrom').title = '0x' + fromHex;
+  $('cbTo').textContent = '0x' + shortHex(toHex, 20);
+  $('cbTo').title = '0x' + toHex;
+  $('cbWorker').textContent = '#' + workerId;
+  const len = bEnd - bStart + 1n;
+  $('cbLen').textContent = len.toString() + ' ключей';
+
+  // Подсветка "активно"
+  const el = $('currentBlock');
+  el.classList.add('active');
+  clearTimeout(el._activeT);
+  el._activeT = setTimeout(() => el.classList.remove('active'), 400);
+}
+
+function resetCurrentBlock() {
+  $('cbFrom').textContent = '—';
+  $('cbTo').textContent = '—';
+  $('cbWorker').textContent = '—';
+  $('cbLen').textContent = '—';
+  $('currentBlock').classList.remove('active');
+}
+
 function startRateTimer() {
   if (rateTimer) clearInterval(rateTimer);
   rateTimer = setInterval(() => {
@@ -807,7 +910,7 @@ function startRateTimer() {
     const done = Number(globalCount);
     const total = Number(rangeSizeGlobal);
     const percent = total > 0 ? Math.min(100, (done / total) * 100) : 0;
-    $('percent').textContent = percent < 0.001 && percent > 0
+    $('percent').textContent = (percent < 0.001 && percent > 0)
       ? '<0.001%'
       : percent.toFixed(3) + '%';
     $('progress').style.width = percent + '%';
@@ -839,19 +942,14 @@ function killWorkers() {
   stopEmojiSpin();
 }
 
-// Функция выдачи следующего блока
 function getNextBlock() {
   if (nextBlockIdx >= totalBlocksBig) return null;
   const i = nextBlockIdx;
   nextBlockIdx += 1n;
-
-  // Перестановка: (a * i + b) mod totalBlocks
   const permuted = mod(permA * i + permB, totalBlocksBig);
-
   const bStart = rangeS + permuted * blockSizeGlobal;
   let bEnd = bStart + blockSizeGlobal - 1n;
   if (bEnd > rangeE) bEnd = rangeE;
-
   return [bStart, bEnd];
 }
 
@@ -879,6 +977,8 @@ function startSearch() {
     '<span class="label">Порядок блоков:</span> псевдослучайный (O(1) память)'
   ], 'searching');
 
+  resetCurrentBlock();
+
   globalCount = 0n;
   rangeSizeGlobal = params.rangeSize;
   rangeS = params.s;
@@ -888,10 +988,8 @@ function startSearch() {
   startTime = Date.now();
   lastCounts.clear();
   totalBlocksBig = params.blocksCount;
-  blocksDone = 0n;
   nextBlockIdx = 0n;
 
-  // Инициализируем линейную перестановку
   if (totalBlocksBig > 1n) {
     permA = randomCoprime(totalBlocksBig);
     permB = randomBigInt(32) % totalBlocksBig;
@@ -976,20 +1074,21 @@ function handleWorkerMessage(e, workerIdx) {
   } else if (d.type === 'blockDone') {
     blocksDone += 1n;
   } else if (d.type === 'needBlock') {
-    // Воркер просит блок — выдаём следующий из перестановки
     const block = getNextBlock();
+    const w = workers[workerIdx];
+    if (!w) return;
+
     if (block) {
-      const w = workers[workerIdx];
-      if (w) {
-        w.postMessage({
-          cmd: 'block',
-          start: block[0].toString(16),
-          end: block[1].toString(16)
-        });
-      }
+      // Обновляем панель "текущий блок"
+      updateCurrentBlock(block[0], block[1], workerIdx);
+
+      w.postMessage({
+        cmd: 'block',
+        start: block[0].toString(16),
+        end: block[1].toString(16)
+      });
     } else {
-      const w = workers[workerIdx];
-      if (w) w.postMessage({ cmd: 'noMoreBlocks' });
+      w.postMessage({ cmd: 'noMoreBlocks' });
     }
   } else if (d.type === 'workerDone') {
     workerDoneSet.add(workerIdx);
