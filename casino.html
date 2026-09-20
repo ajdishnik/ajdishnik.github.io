@@ -88,6 +88,50 @@
     word-break: break-all;
     line-height: 1.4;
   }
+  
+ 
+	
+	
+  .h160-info.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  overflow: hidden;
+  transition: max-height 0.25s, opacity 0.25s, margin-top 0.25s;
+}
+
+.h160-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #14141c;
+  border: 1px solid #2a2a36;
+  border-radius: 6px;
+  color: #8b949e;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.h160-toggle:hover {
+  border-color: #ffd54a;
+  color: #ffd54a;
+}
+
+.h160-toggle::before {
+  content: '▸ ';
+  color: #ffd54a;
+}
+
+.h160-toggle.open::before {
+  content: '▾ ';
+}
+  
+  
+
 
   .h160-info.ok  { color: #54e878; }
   .h160-info.err { color: #ff5c5c; }
@@ -351,7 +395,13 @@
       </div>
     </div>
 
-    <div class="h160-info" id="h160Info">—</div>
+    <!-- <div class="h160-info" id="h160Info">—</div> -->
+	
+	<button type="button" class="h160-toggle" id="h160Toggle">Показать детали цели</button>
+	<div class="h160-info collapsed" id="h160Info">—</div>
+	
+	
+	
   </div>
 
   <div class="slots">
@@ -769,6 +819,35 @@ function setInputsDisabled(disabled) {
   ['addr','start','end','blockSize'].forEach(id => { $(id).disabled = disabled; });
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function setH160Info(text, statusClass) {
+  const el = $('h160Info');
+  const wasCollapsed = el.classList.contains('collapsed');
+  el.className = 'h160-info ' + statusClass;
+  if (wasCollapsed) el.classList.add('collapsed');
+  el.textContent = text;
+}
+
+
+
+
+
+
+
 function validateInputs() {
   const addr = $('addr').value.trim();
   const sHex = $('start').value.trim().replace(/^0x/i, '');
@@ -778,21 +857,22 @@ function validateInputs() {
   try {
     h160 = addressToH160Hex(addr);
   } catch (err) {
-    $('h160Info').textContent = '❌ Адрес: ' + err.message;
-    $('h160Info').className = 'h160-info err';
-    return null;
+  
+	setH160Info('❌ Адрес: ' + err.message, 'err');
+	return null;
+	
   }
   try {
     s = BigInt('0x' + sHex);
     e = BigInt('0x' + eHex);
   } catch (err) {
-    $('h160Info').textContent = '❌ Hex диапазон: некорректный';
-    $('h160Info').className = 'h160-info err';
-    return null;
+  
+	setH160Info('❌ Hex диапазон: некорректный', 'err');
+	return null;
+	
   }
   if (e < s) {
-    $('h160Info').textContent = '❌ Конец диапазона меньше начала';
-    $('h160Info').className = 'h160-info err';
+	setH160Info('❌ Конец диапазона меньше начала', 'err');
     return null;
   }
 
@@ -803,8 +883,8 @@ function validateInputs() {
       blockSize = BigInt(bsStr);
       if (blockSize < 1n) blockSize = 1n;
     } catch (err) {
-      $('h160Info').textContent = '❌ Размер блока: некорректный';
-      $('h160Info').className = 'h160-info err';
+	  setH160Info('❌ Размер блока: некорректный', 'err');
+
       return null;
     }
   }
@@ -819,13 +899,18 @@ function validateInputs() {
     warn = ' ⚠️ огромный диапазон';
   }
 
-  $('h160Info').textContent =
-    '✅ hash160: ' + h160 +
-    ' | ключей: ' + size.toString() +
-    ' | блоков: ' + blocksCount.toString() +
-    warn;
-  $('h160Info').className = cls;
-  return { h160, s, e, rangeSize: size, blockSize, blocksCount };
+	setH160Info(
+	  '✅ hash160: ' + h160 +
+	  ' | ключей: ' + size.toString() +
+	  ' | блоков: ' + blocksCount.toString() +
+	  warn,
+	  cls === 'h160-info warn' ? 'warn' : 'ok'
+	);
+	return { h160, s, e, rangeSize: size, blockSize, blocksCount };
+  
+  
+  
+  
 }
 
 function startEmojiSpin() {
@@ -1130,6 +1215,32 @@ window.addEventListener('DOMContentLoaded', function () {
       if (tag !== 'INPUT') onButtonClick();
     }
   });
+
+
+
+
+// Гарантируем стартовое состояние спойлера — закрыт
+$('h160Info').classList.add('collapsed');
+$('h160Toggle').classList.remove('open');
+$('h160Toggle').textContent = 'Показать детали цели';
+
+const toggle = $('h160Toggle');
+const info = $('h160Info');
+
+toggle.addEventListener('click', () => {
+  const isClosed = info.classList.contains('collapsed');
+  if (isClosed) {
+    info.classList.remove('collapsed');
+    toggle.classList.add('open');
+    toggle.textContent = 'Скрыть детали цели';
+  } else {
+    info.classList.add('collapsed');
+    toggle.classList.remove('open');
+    toggle.textContent = 'Показать детали цели';
+  }
+});
+
+
 
   validateInputs();
 
