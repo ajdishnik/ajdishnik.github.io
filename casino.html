@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎰 Bitcoin Puzzle — Крутилка</title>
+<title>🎰 Bitcoin Puzzle — Поиск по диапазону</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -21,7 +21,7 @@
   }
 
   .casino {
-    width: 480px;
+    width: 520px;
     padding: 24px;
     background: linear-gradient(180deg, #1e1e2a, #16161d);
     border-radius: 20px;
@@ -75,6 +75,7 @@
   }
 
   input:focus { border-color: #ffd54a; }
+  input:disabled { opacity: 0.6; }
 
   .row-inline { display: flex; gap: 8px; }
   .row-inline > div { flex: 1; }
@@ -90,6 +91,7 @@
 
   .h160-info.ok  { color: #54e878; }
   .h160-info.err { color: #ff5c5c; }
+  .h160-info.warn { color: #ffb84a; }
 
   .slots {
     display: flex;
@@ -134,6 +136,11 @@
     animation: slotPulse 0.6s ease-in-out infinite alternate;
   }
 
+  .slot.stop {
+    border-color: #ff5c5c;
+    box-shadow: 0 0 15px rgba(255,92,92,0.4);
+  }
+
   @keyframes slotPulse {
     from { transform: scale(1); }
     to   { transform: scale(1.06); }
@@ -158,7 +165,14 @@
   button:hover:not(:disabled) { background: #ffe477; transform: translateY(-1px); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* --- Исправленный блок результата --- */
+  button.stop-mode {
+    background: #ff5c5c;
+    color: #fff;
+  }
+  button.stop-mode:hover:not(:disabled) {
+    background: #ff7777;
+  }
+
   .result {
     min-height: 90px;
     margin-top: 18px;
@@ -181,7 +195,6 @@
     color: #ffd54a;
     font-weight: bold;
     word-break: break-all;
-    font-family: Consolas, monospace;
   }
   .result .addr {
     color: #7ab8ff;
@@ -189,6 +202,7 @@
   }
 
   .result.searching { color: #ffd54a; }
+  .result.stopped   { color: #ff9c9c; }
 
   .result.win {
     background: #0f2a1a;
@@ -199,9 +213,27 @@
   .result.win .key  { color: #8fffb8; }
   .result.win .addr { color: #a8e0ff; }
 
+  .progress-wrap {
+    margin-top: 14px;
+    height: 8px;
+    background: #0f0f15;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #2a2a36;
+  }
+
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ffd54a, #ffb700);
+    transition: width 0.2s linear;
+    border-radius: 6px;
+  }
+
   .stats {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
     margin-top: 14px;
     padding: 10px 12px;
     background: #0f0f15;
@@ -212,6 +244,20 @@
   }
 
   .stats b { color: #58a6ff; }
+
+  .hint {
+    margin-top: 10px;
+    font-size: 10px;
+    color: #555;
+    text-align: center;
+  }
+  .hint kbd {
+    background: #2a2a36;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: Consolas, monospace;
+    color: #aaa;
+  }
 </style>
 </head>
 
@@ -219,7 +265,7 @@
 
 <div class="casino">
   <h1>🎰 Bitcoin Puzzle</h1>
-  <div class="subtitle">Введите адрес и диапазон, крутите — если найдём, увидите ключ</div>
+  <div class="subtitle">Блоки в псевдослучайном порядке — память O(1)</div>
 
   <div class="panel">
     <div class="field">
@@ -232,6 +278,14 @@
       <div class="row-inline">
         <div><input id="start" value="400000000000000000" placeholder="от"></div>
         <div><input id="end" value="7fffffffffffffffff" placeholder="до"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Размер блока (ключей подряд с одного старта):</label>
+      <input id="blockSize" value="10000" placeholder="10000">
+      <div style="font-size:10px;color:#555;margin-top:4px">
+        Меньше = больше «прыжков», но чуть медленнее. 10 000 — оптимально.
       </div>
     </div>
 
@@ -252,10 +306,21 @@
     Нажмите «Крутить», чтобы начать поиск
   </div>
 
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progress"></div>
+  </div>
+
   <div class="stats">
     <div>Скорость: <b id="rate">0</b> k/s</div>
     <div>Проверено: <b id="count">0</b></div>
+    <div>Прогресс: <b id="percent">0.0%</b></div>
+    <div>Осталось: <b id="eta">—</b></div>
+    <div>Блоков: <b id="blocks">0 / 0</b></div>
     <div>Время: <b id="time">0.0</b> с</div>
+  </div>
+
+  <div class="hint">
+    <kbd>Enter</kbd> — старт/стоп • <kbd>Esc</kbd> — стоп
   </div>
 </div>
 
@@ -269,17 +334,6 @@ const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
 const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
 
 function mod(a, m) { const r = a % m; return r >= 0n ? r : r + m; }
-
-function modInv(a, m) {
-  let or_ = mod(a, m), r = m, os_ = 1n, s = 0n;
-  while (r !== 0n) {
-    const q = or_ / r;
-    const tr = or_ - q * r; or_ = r; r = tr;
-    const ts = os_ - q * s; os_ = s; s = ts;
-  }
-  if (or_ !== 1n) throw new Error('no inv');
-  return mod(os_, m);
-}
 
 function rol(x, n) { return ((x << n) | (x >>> (32 - n))) >>> 0; }
 
@@ -389,6 +443,41 @@ function addressToH160Hex(addr) {
 }
 
 /* =========================================================================
+   Утилиты: GCD, случайный BigInt, взаимно простой коэффициент
+   ========================================================================= */
+function gcd(a, b) {
+  a = a < 0n ? -a : a;
+  b = b < 0n ? -b : b;
+  while (b) { const t = b; b = a % b; a = t; }
+  return a;
+}
+
+function randomBigInt(bits) {
+  // случайное BigInt размером bits бит
+  const bytes = Math.ceil(bits / 8);
+  const rnd = new Uint8Array(bytes);
+  crypto.getRandomValues(rnd);
+  let r = 0n;
+  for (const b of rnd) r = (r << 8n) | BigInt(b);
+  return r;
+}
+
+function randomCoprime(n) {
+  // Случайный a из [n/2, n), взаимно простой с n
+  if (n <= 1n) return 1n;
+  const half = n / 2n;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    let a = half + (randomBigInt(64) % (n - half));
+    if (a <= 1n) a = 2n;
+    if (gcd(a, n) === 1n) return a;
+  }
+  // fallback: ищем последовательно
+  let a = half + 1n;
+  while (gcd(a, n) !== 1n) a += 1n;
+  return a;
+}
+
+/* =========================================================================
    WORKER CODE
    ========================================================================= */
 function buildWorkerCode() {
@@ -397,13 +486,17 @@ function buildWorkerCode() {
     "const N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;",
     "const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;",
     "const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;",
+
     "function mod(a,m){const r=a%m;return r>=0n?r:r+m;}",
     "function modInv(a,m){let or_=mod(a,m),r=m,os_=1n,s=0n;while(r!==0n){const q=or_/r;const tr=or_-q*r;or_=r;r=tr;const ts=os_-q*s;os_=s;s=ts;}if(or_!==1n)throw new Error('no inv');return mod(os_,m);}",
+
     "function pointAddAff(A,B){if(A===null)return B;if(B===null)return A;const x1=A[0],y1=A[1],x2=B[0],y2=B[1];let lam;if(x1===x2){if(mod(y1+y2,P)===0n)return null;lam=mod((3n*x1*x1)*modInv(2n*y1,P),P);}else{lam=mod((y2-y1)*modInv(mod(x2-x1,P),P),P);}const x3=mod(lam*lam-x1-x2,P);const y3=mod(lam*(x1-x3)-y1,P);return[x3,y3];}",
     "function mulG(k){k=mod(k,N);let R=null,Q=[Gx,Gy];while(k>0n){if(k&1n)R=pointAddAff(R,Q);Q=pointAddAff(Q,Q);k>>=1n;}return R;}",
+
     "function jacDouble(X1,Y1,Z1){if(Z1===0n)return[0n,0n,0n];const YY=mod(Y1*Y1,P);const S=mod(4n*X1*YY,P);const M=mod(3n*X1*X1,P);const X3=mod(M*M-2n*S,P);const Y3=mod(M*(S-X3)-8n*YY*YY,P);const Z3=mod(2n*Y1*Z1,P);return[X3,Y3,Z3];}",
     "function jacAddAffine(X1,Y1,Z1,x2,y2){if(Z1===0n)return[x2,y2,1n];const Z1Z1=mod(Z1*Z1,P);const U2=mod(x2*Z1Z1,P);const S2=mod(y2*Z1*Z1Z1,P);const H=mod(U2-X1,P);const R=mod(S2-Y1,P);if(H===0n){if(R===0n)return jacDouble(X1,Y1,Z1);return[0n,0n,0n];}const HH=mod(H*H,P);const HHH=mod(H*HH,P);const V=mod(X1*HH,P);const X3=mod(R*R-HHH-2n*V,P);const Y3=mod(R*(V-X3)-Y1*HHH,P);const Z3=mod(Z1*H,P);return[X3,Y3,Z3];}",
     "function batchToAffine(xs,ys,zs){const n=xs.length;const prefix=new Array(n);let acc=1n;for(let i=0;i<n;i++){prefix[i]=acc;acc=mod(acc*zs[i],P);}let inv=modInv(acc,P);const ax=new Array(n),ay=new Array(n);for(let i=n-1;i>=0;i--){const zi=mod(inv*prefix[i],P);inv=mod(inv*zs[i],P);const zi2=mod(zi*zi,P);const zi3=mod(zi2*zi,P);ax[i]=mod(xs[i]*zi2,P);ay[i]=mod(ys[i]*zi3,P);}return[ax,ay];}",
+
     "function rol(x,n){return((x<<n)|(x>>>(32-n)))>>>0;}",
     "function ripemd160(msg){",
     "const r1=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];",
@@ -433,6 +526,7 @@ function buildWorkerCode() {
     "const out=new Uint8Array(20);const odv=new DataView(out.buffer);",
     "odv.setUint32(0,h0,true);odv.setUint32(4,h1,true);odv.setUint32(8,h2,true);",
     "odv.setUint32(12,h3,true);odv.setUint32(16,h4,true);return out;}",
+
     "async function sha256(b){return new Uint8Array(await crypto.subtle.digest('SHA-256',b));}",
     "async function hash160Hex(x,y){",
     "const pub=new Uint8Array(33);pub[0]=(y&1n)?0x03:0x02;",
@@ -442,55 +536,98 @@ function buildWorkerCode() {
     "const h=ripemd160(s1);",
     "let out='';for(let i=0;i<h.length;i++)out+=h[i].toString(16).padStart(2,'0');",
     "return out;}",
+
     "let running=false;",
+    "let target='';",
+    "let id=0;",
+    "let lastReport=Date.now();",
+    "let pendingCount=0n;",
+    "const BATCH=64;",
+
+    "async function processBlock(bStart, bEnd) {",
+    "  const startPt = mulG(bStart);",
+    "  if (!startPt) return false;",
+    "  let X = startPt[0], Y = startPt[1], Z = 1n;",
+    "  let k = bStart;",
+    "  while (running && k <= bEnd) {",
+    "    const bufX=[], bufY=[], bufZ=[], bufK=[];",
+    "    for(let i=0;i<BATCH;i++){",
+    "      if (!running) break;",
+    "      if (k > bEnd) break;",
+    "      bufX.push(X); bufY.push(Y); bufZ.push(Z); bufK.push(k);",
+    "      const nxt = jacAddAffine(X, Y, Z, Gx, Gy);",
+    "      X = nxt[0]; Y = nxt[1]; Z = nxt[2];",
+    "      k += 1n;",
+    "    }",
+    "    if (bufX.length === 0) break;",
+    "    const res = batchToAffine(bufX, bufY, bufZ);",
+    "    const ax = res[0], ay = res[1];",
+    "    for(let i=0;i<ax.length;i++){",
+    "      if (!running) break;",
+    "      const h = await hash160Hex(ax[i], ay[i]);",
+    "      if (h === target) {",
+    "        self.postMessage({type:'HIT', key:bufK[i].toString(16), hash:h, worker:id});",
+    "        running=false; return true;",
+    "      }",
+    "    }",
+    "    pendingCount += BigInt(ax.length);",
+    "    const now=Date.now();",
+    "    if(now-lastReport>300){",
+    "      self.postMessage({type:'STAT', count:pendingCount.toString()});",
+    "      pendingCount=0n; lastReport=now;",
+    "    }",
+    "  }",
+    "  return false;",
+    "}",
+
     "self.onmessage=async(e)=>{",
     "const d=e.data;",
     "if(d.cmd==='stop'){running=false;return;}",
-    "if(d.cmd!=='run')return;",
-    "running=true;",
-    "const start=BigInt(d.start);",
-    "const end=BigInt(d.end);",
-    "const target=d.target;",
-    "const id=d.id;",
-    "let rangeStart=start,rangeEnd=end;",
-    "if(d.workerCount>1){",
-    "const total=end-start+1n;",
-    "const chunk=total/BigInt(d.workerCount)+1n;",
-    "rangeStart=start+chunk*BigInt(id);",
-    "rangeEnd=rangeStart+chunk-1n;",
-    "if(rangeEnd>end)rangeEnd=end;",
-    "if(rangeStart>end){self.postMessage({type:'done'});return;}",
+
+    "if(d.cmd==='run'){",
+    "  target=d.target;",
+    "  id=d.id;",
+    "  running=true;",
+    "  lastReport=Date.now();",
+    "  // Запрашиваем блоки у главного потока, пока он их даёт",
+    "  while (running) {",
+    "    self.postMessage({type:'needBlock', worker:id});",
+    "    const blockData = await new Promise((resolve) => {",
+    "      const handler = (ev) => {",
+    "        if (ev.data.cmd === 'block' || ev.data.cmd === 'noMoreBlocks') {",
+    "          self.removeEventListener('message', handler);",
+    "          resolve(ev.data);",
+    "        } else if (ev.data.cmd === 'stop') {",
+    "          self.removeEventListener('message', handler);",
+    "          running = false;",
+    "          resolve({cmd:'stop'});",
+    "        }",
+    "      };",
+    "      self.addEventListener('message', handler);",
+    "    });",
+    "    if (!running || !blockData || blockData.cmd === 'stop') break;",
+    "    if (blockData.cmd === 'noMoreBlocks') {",
+    "      self.postMessage({type:'workerDone', worker:id});",
+    "      if (pendingCount > 0n) {",
+    "        self.postMessage({type:'STAT', count:pendingCount.toString()});",
+    "        pendingCount=0n;",
+    "      }",
+    "      return;",
+    "    }",
+    "    const bStart = BigInt('0x' + blockData.start);",
+    "    const bEnd   = BigInt('0x' + blockData.end);",
+    "    const found = await processBlock(bStart, bEnd);",
+    "    if (found) return;",
+    "    self.postMessage({type:'blockDone'});",
+    "  }",
+    "  if (pendingCount > 0n) {",
+    "    self.postMessage({type:'STAT', count:pendingCount.toString()});",
+    "    pendingCount=0n;",
+    "  }",
+    "  self.postMessage({type:'workerDone', worker:id});",
+    "  return;",
     "}",
-    "const startPt=mulG(rangeStart);",
-    "if(startPt===null){self.postMessage({type:'done'});return;}",
-    "let X=startPt[0],Y=startPt[1],Z=1n;",
-    "let k=rangeStart;",
-    "let count=0n;let lastReport=Date.now();",
-    "const BATCH=64;",
-    "while(running){",
-    "const bufX=[],bufY=[],bufZ=[],bufK=[];",
-    "for(let i=0;i<BATCH;i++){",
-    "if(k>rangeEnd)break;",
-    "bufX.push(X);bufY.push(Y);bufZ.push(Z);bufK.push(k);",
-    "const nxt=jacAddAffine(X,Y,Z,Gx,Gy);",
-    "X=nxt[0];Y=nxt[1];Z=nxt[2];",
-    "k+=1n;}",
-    "if(bufX.length===0){self.postMessage({type:'done'});return;}",
-    "const res=batchToAffine(bufX,bufY,bufZ);",
-    "const ax=res[0],ay=res[1];",
-    "for(let i=0;i<ax.length;i++){",
-    "const h=await hash160Hex(ax[i],ay[i]);",
-    "if(h===target){",
-    "self.postMessage({type:'HIT',key:bufK[i].toString(16),hash:h,worker:id});",
-    "running=false;return;}",
-    "}",
-    "count+=BigInt(ax.length);",
-    "const now=Date.now();",
-    "if(now-lastReport>300){",
-    "self.postMessage({type:'STAT',count:count.toString()});",
-    "count=0n;lastReport=now;}",
-    "if(k>rangeEnd){self.postMessage({type:'done'});return;}",
-    "}};"
+    "};"
   ].join("\n");
 }
 
@@ -501,26 +638,57 @@ const $ = id => document.getElementById(id);
 const EMOJIS = ['🍒','🍋','🍊','🔔','⭐','💎','🍀','7️⃣','🎰','🪙'];
 
 let spinning = false;
+let stopped = false;
 let workers = [];
 let lastCounts = new Map();
 let startTime = 0;
 let globalCount = 0n;
+let totalBlocks = 0n;
+let blocksDone = 0n;
+let rangeSizeGlobal = 1n;
 let rateTimer = null;
 let emojiTimer = null;
+let workerDoneSet = new Set();
+let workerCountGlobal = 0;
+let targetH160 = '';
+let rangeS = 0n;
+let rangeE = 0n;
+let blockSizeGlobal = 10000n;
+let permA = 0n;
+let permB = 0n;
+let nextBlockIdx = 0n;
+let totalBlocksBig = 0n;
 
 function randomEmoji() {
   return EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
 }
 
-function setResult(html, cls) {
+function setResultLines(lines, cls) {
+  const html = lines.map(l => '<div class="line">' + l + '</div>').join('');
   const el = $('result');
   el.innerHTML = html;
   el.className = 'result ' + (cls || '');
 }
 
-function setResultLines(lines, cls) {
-  const html = lines.map(l => '<div class="line">' + l + '</div>').join('');
-  setResult(html, cls);
+function setButtonState(mode) {
+  const btn = $('spin');
+  if (mode === 'idle') {
+    btn.textContent = '🎲 КРУТИТЬ';
+    btn.classList.remove('stop-mode');
+    btn.disabled = false;
+  } else if (mode === 'searching') {
+    btn.textContent = '⏹ СТОП';
+    btn.classList.add('stop-mode');
+    btn.disabled = false;
+  } else if (mode === 'locked') {
+    btn.textContent = '⏳ ИЩЕМ...';
+    btn.classList.remove('stop-mode');
+    btn.disabled = true;
+  }
+}
+
+function setInputsDisabled(disabled) {
+  ['addr','start','end','blockSize'].forEach(id => { $(id).disabled = disabled; });
 }
 
 function validateInputs() {
@@ -550,10 +718,37 @@ function validateInputs() {
     return null;
   }
 
+  let blockSize = 10000n;
+  const bsStr = $('blockSize').value.trim();
+  if (bsStr) {
+    try {
+      blockSize = BigInt(bsStr);
+      if (blockSize < 1n) blockSize = 1n;
+    } catch (err) {
+      $('h160Info').textContent = '❌ Размер блока: некорректный';
+      $('h160Info').className = 'h160-info err';
+      return null;
+    }
+  }
+
   const size = e - s + 1n;
-  $('h160Info').textContent = '✅ hash160 цели: ' + h160 + '  |  размер: ' + size.toString();
-  $('h160Info').className = 'h160-info ok';
-  return { h160, s, e };
+  const blocksCount = (size + blockSize - 1n) / blockSize;
+
+  let cls = 'h160-info ok';
+  let warn = '';
+  // Предупреждение для очень больших диапазонов
+  if (size > 10000000000n) {
+    cls = 'h160-info warn';
+    warn = ' ⚠️ огромный диапазон — ключ вряд ли найдётся';
+  }
+
+  $('h160Info').textContent =
+    '✅ hash160: ' + h160 +
+    ' | ключей: ' + size.toString() +
+    ' | блоков: ' + blocksCount.toString() +
+    warn;
+  $('h160Info').className = cls;
+  return { h160, s, e, rangeSize: size, blockSize, blocksCount };
 }
 
 function startEmojiSpin() {
@@ -577,22 +772,53 @@ function showWin(emoji) {
   });
 }
 
-function showLose() {
+function showStopped() {
   const slots = ['slot1','slot2','slot3'].map(id => $(id));
   slots.forEach(s => {
     s.textContent = randomEmoji();
-    s.className = 'slot';
+    s.className = 'slot stop';
   });
+}
+
+function formatETA(seconds) {
+  if (!isFinite(seconds) || seconds < 0) return '—';
+  if (seconds < 60) return seconds.toFixed(0) + ' с';
+  if (seconds < 3600) return (seconds / 60).toFixed(1) + ' мин';
+  if (seconds < 86400) return (seconds / 3600).toFixed(1) + ' ч';
+  if (seconds < 86400 * 365) return (seconds / 86400).toFixed(0) + ' дн';
+  return '∞';
+}
+
+function recalcGlobal() {
+  globalCount = 0n;
+  for (const v of lastCounts.values()) globalCount += v;
 }
 
 function startRateTimer() {
   if (rateTimer) clearInterval(rateTimer);
   rateTimer = setInterval(() => {
+    if (stopped) return;
     const elapsed = Math.max(0.001, (Date.now() - startTime) / 1000);
     const rate = Number(globalCount) / elapsed / 1000;
     $('rate').textContent = rate.toFixed(1);
     $('count').textContent = Number(globalCount).toLocaleString('en-US');
     $('time').textContent = elapsed.toFixed(1);
+
+    const done = Number(globalCount);
+    const total = Number(rangeSizeGlobal);
+    const percent = total > 0 ? Math.min(100, (done / total) * 100) : 0;
+    $('percent').textContent = percent < 0.001 && percent > 0
+      ? '<0.001%'
+      : percent.toFixed(3) + '%';
+    $('progress').style.width = percent + '%';
+    $('blocks').textContent = blocksDone.toString() + ' / ' + totalBlocksBig.toString();
+
+    if (rate > 0 && total > done) {
+      const remaining = (total - done) / (rate * 1000);
+      $('eta').textContent = formatETA(remaining);
+    } else {
+      $('eta').textContent = '—';
+    }
   }, 200);
 }
 
@@ -601,16 +827,35 @@ function stopRateTimer() {
 }
 
 function killWorkers() {
-  workers.forEach(w => { try { w.terminate(); } catch(e){} });
+  workers.forEach(w => {
+    try {
+      w.postMessage({ cmd: 'stop' });
+      w.terminate();
+    } catch (e) {}
+  });
   workers = [];
   lastCounts.clear();
   stopRateTimer();
   stopEmojiSpin();
 }
 
-function spin() {
-  if (spinning) return;
+// Функция выдачи следующего блока
+function getNextBlock() {
+  if (nextBlockIdx >= totalBlocksBig) return null;
+  const i = nextBlockIdx;
+  nextBlockIdx += 1n;
 
+  // Перестановка: (a * i + b) mod totalBlocks
+  const permuted = mod(permA * i + permB, totalBlocksBig);
+
+  const bStart = rangeS + permuted * blockSizeGlobal;
+  let bEnd = bStart + blockSizeGlobal - 1n;
+  if (bEnd > rangeE) bEnd = rangeE;
+
+  return [bStart, bEnd];
+}
+
+function startSearch() {
   const params = validateInputs();
   if (!params) {
     setResultLines(['❌ Проверьте адрес и диапазон'], '');
@@ -618,93 +863,172 @@ function spin() {
   }
 
   spinning = true;
-  $('spin').disabled = true;
-  $('spin').textContent = '⏳ ИЩЕМ...';
+  stopped = false;
+  blocksDone = 0n;
+  workerDoneSet.clear();
+
+  setButtonState('locked');
+  setInputsDisabled(true);
 
   startEmojiSpin();
-  setResultLines(['🔍 Идёт поиск...'], 'searching');
+  setResultLines([
+    '🎲 Поиск...',
+    '<span class="label">Всего ключей:</span> ' + params.rangeSize.toString(),
+    '<span class="label">Блоков:</span> ' + params.blocksCount.toString() +
+      ' × ' + params.blockSize.toString() + ' ключей',
+    '<span class="label">Порядок блоков:</span> псевдослучайный (O(1) память)'
+  ], 'searching');
 
   globalCount = 0n;
+  rangeSizeGlobal = params.rangeSize;
+  rangeS = params.s;
+  rangeE = params.e;
+  blockSizeGlobal = params.blockSize;
+  targetH160 = params.h160;
   startTime = Date.now();
   lastCounts.clear();
-  startRateTimer();
+  totalBlocksBig = params.blocksCount;
+  blocksDone = 0n;
+  nextBlockIdx = 0n;
 
-  const nw = Math.max(2, Math.min(8, (navigator.hardwareConcurrency || 4)));
+  // Инициализируем линейную перестановку
+  if (totalBlocksBig > 1n) {
+    permA = randomCoprime(totalBlocksBig);
+    permB = randomBigInt(32) % totalBlocksBig;
+  } else {
+    permA = 1n;
+    permB = 0n;
+  }
+
+  const nw = Math.max(1, Math.min(16, (navigator.hardwareConcurrency || 4)));
+  workerCountGlobal = nw;
+
   const blob = new Blob([buildWorkerCode()], { type: 'application/javascript' });
   const url = URL.createObjectURL(blob);
 
-  const state = { found: false, hit: null };
-
   for (let i = 0; i < nw; i++) {
     const w = new Worker(url);
-    w.onmessage = (e) => handleWorkerMessage(e, i, state);
+    w.onmessage = (e) => handleWorkerMessage(e, i);
     w.onerror = (err) => console.error('worker error', err);
     w.postMessage({
       cmd: 'run',
-      start: params.s.toString(),
-      end: params.e.toString(),
       target: params.h160,
-      id: i,
-      workerCount: nw
+      id: i
     });
     workers.push(w);
+    lastCounts.set(i, 0n);
   }
   URL.revokeObjectURL(url);
+
+  startRateTimer();
+
+  setTimeout(() => {
+    if (spinning) setButtonState('searching');
+  }, 100);
 }
 
-function handleWorkerMessage(e, workerIdx, state) {
-  const d = e.data;
-  if (d.type === 'STAT') {
-    lastCounts.set(workerIdx, (lastCounts.get(workerIdx) || 0n) + BigInt(d.count));
-    globalCount = 0n;
-    for (const v of lastCounts.values()) globalCount += v;
-  } else if (d.type === 'HIT') {
-    if (state.found) return;
-    state.found = true;
-    state.hit = d;
-    finishSpin(state);
-  } else if (d.type === 'done') {
-    lastCounts.set('done_' + workerIdx, 1n);
-    let doneCount = 0;
-    for (const k of lastCounts.keys()) if (typeof k === 'string' && k.startsWith('done_')) doneCount++;
-    if (doneCount >= workers.length && !state.found) {
-      finishSpin(state);
-    }
-  }
-}
-
-function finishSpin(state) {
+function stopSearch() {
+  if (!spinning) return;
+  stopped = true;
   killWorkers();
   spinning = false;
-  $('spin').disabled = false;
-  $('spin').textContent = '🎲 КРУТИТЬ';
+  setButtonState('idle');
+  setInputsDisabled(false);
 
+  showStopped();
+  setResultLines(['⏹ Остановлено. Нажмите «Крутить» для нового поиска.'], 'stopped');
+}
+
+function finishWin(hit) {
   const addr = $('addr').value.trim();
+  const lucky = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+  showWin(lucky);
 
-  if (state.found && state.hit) {
-    const lucky = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-    showWin(lucky);
+  setResultLines([
+    '💎💎💎 <b>НАЙДЕНО!</b>',
+    '<span class="label">Приватный ключ:</span> <span class="key">0x' + hit.key + '</span>',
+    '<span class="label">Адрес:</span> <span class="addr">' + addr + '</span>'
+  ], 'win');
+}
 
-    setResultLines([
-      '💎💎💎 <b>НАЙДЕНО!</b>',
-      '<span class="label">Приватный ключ:</span> <span class="key">0x' + state.hit.key + '</span>',
-      '<span class="label">Адрес:</span> <span class="addr">' + addr + '</span>'
-    ], 'win');
-  } else {
-    showLose();
-    setResultLines(['😢 Не нашли в этом диапазоне. Попробуйте расширить.'], '');
+function finishNotfound() {
+  stopped = true;
+  killWorkers();
+  spinning = false;
+  setButtonState('idle');
+  setInputsDisabled(false);
+
+  showStopped();
+  setResultLines([
+    '🏁 <b>Все блоки пройдены.</b>',
+    '<span class="label">Проверено ключей:</span> ' + Number(globalCount).toLocaleString('en-US'),
+    '<span class="label">Ключ в этом диапазоне не найден.</span>'
+  ], 'stopped');
+}
+
+function handleWorkerMessage(e, workerIdx) {
+  if (stopped) return;
+  const d = e.data;
+
+  if (d.type === 'STAT') {
+    lastCounts.set(workerIdx, (lastCounts.get(workerIdx) || 0n) + BigInt(d.count));
+    recalcGlobal();
+  } else if (d.type === 'blockDone') {
+    blocksDone += 1n;
+  } else if (d.type === 'needBlock') {
+    // Воркер просит блок — выдаём следующий из перестановки
+    const block = getNextBlock();
+    if (block) {
+      const w = workers[workerIdx];
+      if (w) {
+        w.postMessage({
+          cmd: 'block',
+          start: block[0].toString(16),
+          end: block[1].toString(16)
+        });
+      }
+    } else {
+      const w = workers[workerIdx];
+      if (w) w.postMessage({ cmd: 'noMoreBlocks' });
+    }
+  } else if (d.type === 'workerDone') {
+    workerDoneSet.add(workerIdx);
+    if (workerDoneSet.size >= workerCountGlobal && !stopped) {
+      finishNotfound();
+    }
+  } else if (d.type === 'HIT') {
+    stopped = true;
+    killWorkers();
+    spinning = false;
+    setButtonState('idle');
+    setInputsDisabled(false);
+    finishWin(d);
   }
+}
+
+function onButtonClick() {
+  if (spinning) stopSearch();
+  else startSearch();
 }
 
 /* =========================================================================
    Старт
    ========================================================================= */
 window.addEventListener('DOMContentLoaded', function () {
-  $('spin').addEventListener('click', spin);
+  $('spin').addEventListener('click', onButtonClick);
 
-  ['addr','start','end'].forEach(id => {
+  ['addr','start','end','blockSize'].forEach(id => {
     $(id).addEventListener('input', validateInputs);
     $(id).addEventListener('change', validateInputs);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (spinning) stopSearch();
+    } else if (e.key === 'Enter') {
+      const tag = (e.target.tagName || '').toUpperCase();
+      if (tag !== 'INPUT') onButtonClick();
+    }
   });
 
   validateInputs();
