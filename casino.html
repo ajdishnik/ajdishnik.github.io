@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 Bitcoin Puzzle — Крутилка</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at top, #1a1a2e, #0d0d12);
+    color: white;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    padding: 16px;
+  }
+
+  .casino {
+    width: 480px;
+    padding: 24px;
+    background: linear-gradient(180deg, #1e1e2a, #16161d);
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,213,74,0.1);
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    color: #ffd54a;
+    font-size: 26px;
+    text-shadow: 0 0 20px rgba(255,213,74,0.4);
+  }
+
+  .subtitle {
+    color: #8b949e;
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+
+  .panel {
+    background: #0f0f15;
+    border: 1px solid #2a2a36;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 16px;
+    text-align: left;
+    font-size: 12px;
+  }
+
+  .panel .field { margin-bottom: 10px; }
+  .panel .field:last-child { margin-bottom: 0; }
+
+  .panel label {
+    display: block;
+    margin-bottom: 4px;
+    color: #8b949e;
+    font-size: 11px;
+  }
+
+  input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #33333f;
+    border-radius: 8px;
+    background: #1a1a22;
+    color: white;
+    font-size: 13px;
+    outline: none;
+    font-family: Consolas, monospace;
+  }
+
+  input:focus { border-color: #ffd54a; }
+
+  .row-inline { display: flex; gap: 8px; }
+  .row-inline > div { flex: 1; }
+
+  .h160-info {
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    color: #555;
+    margin-top: 8px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  .h160-info.ok  { color: #54e878; }
+  .h160-info.err { color: #ff5c5c; }
+
+  .slots {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin: 24px 0;
+  }
+
+  .slot {
+    width: 110px;
+    height: 110px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #1a1a22;
+    border: 2px solid #3b3b47;
+    border-radius: 18px;
+    font-size: 52px;
+    transition: transform 0.08s, border-color 0.2s, box-shadow 0.2s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+    pointer-events: none;
+  }
+
+  .slot.spinning {
+    border-color: #ffd54a;
+    box-shadow: 0 0 25px rgba(255,213,74,0.5), inset 0 0 25px rgba(255,213,74,0.15);
+  }
+
+  .slot.win {
+    border-color: #54e878;
+    box-shadow: 0 0 35px rgba(84,232,120,0.8), inset 0 0 35px rgba(84,232,120,0.25);
+    background: #143020;
+    animation: slotPulse 0.6s ease-in-out infinite alternate;
+  }
+
+  @keyframes slotPulse {
+    from { transform: scale(1); }
+    to   { transform: scale(1.06); }
+  }
+
+  .controls { display: flex; gap: 10px; }
+
+  button {
+    width: 100%;
+    padding: 14px;
+    border: 0;
+    border-radius: 12px;
+    background: #ffd54a;
+    color: #171717;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  button:hover:not(:disabled) { background: #ffe477; transform: translateY(-1px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* --- Исправленный блок результата --- */
+  .result {
+    min-height: 90px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    font-family: Consolas, monospace;
+    text-align: left;
+    background: #0f0f15;
+    border: 1px solid #2a2a36;
+    color: #8b949e;
+    transition: all 0.3s;
+    word-break: break-word;
+  }
+
+  .result .line { margin: 2px 0; }
+  .result .label { color: #777; }
+  .result .key {
+    color: #ffd54a;
+    font-weight: bold;
+    word-break: break-all;
+    font-family: Consolas, monospace;
+  }
+  .result .addr {
+    color: #7ab8ff;
+    word-break: break-all;
+  }
+
+  .result.searching { color: #ffd54a; }
+
+  .result.win {
+    background: #0f2a1a;
+    border-color: #54e878;
+    color: #c8ffd8;
+    box-shadow: 0 0 25px rgba(84,232,120,0.25);
+  }
+  .result.win .key  { color: #8fffb8; }
+  .result.win .addr { color: #a8e0ff; }
+
+  .stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: #0f0f15;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #777;
+    font-family: Consolas, monospace;
+  }
+
+  .stats b { color: #58a6ff; }
+</style>
+</head>
+
+<body>
+
+<div class="casino">
+  <h1>🎰 Bitcoin Puzzle</h1>
+  <div class="subtitle">Введите адрес и диапазон, крутите — если найдём, увидите ключ</div>
+
+  <div class="panel">
+    <div class="field">
+      <label>Целевой BTC-адрес:</label>
+      <input id="addr" value="1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU" placeholder="1...">
+    </div>
+
+    <div class="field">
+      <label>Диапазон ключей (hex, без 0x):</label>
+      <div class="row-inline">
+        <div><input id="start" value="400000000000000000" placeholder="от"></div>
+        <div><input id="end" value="7fffffffffffffffff" placeholder="до"></div>
+      </div>
+    </div>
+
+    <div class="h160-info" id="h160Info">—</div>
+  </div>
+
+  <div class="slots">
+    <div class="slot" id="slot1">❓</div>
+    <div class="slot" id="slot2">❓</div>
+    <div class="slot" id="slot3">❓</div>
+  </div>
+
+  <div class="controls">
+    <button id="spin">🎲 КРУТИТЬ</button>
+  </div>
+
+  <div class="result" id="result">
+    Нажмите «Крутить», чтобы начать поиск
+  </div>
+
+  <div class="stats">
+    <div>Скорость: <b id="rate">0</b> k/s</div>
+    <div>Проверено: <b id="count">0</b></div>
+    <div>Время: <b id="time">0.0</b> с</div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   secp256k1 + RIPEMD-160 + base58
+   ========================================================================= */
+const P  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const N  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+
+function mod(a, m) { const r = a % m; return r >= 0n ? r : r + m; }
+
+function modInv(a, m) {
+  let or_ = mod(a, m), r = m, os_ = 1n, s = 0n;
+  while (r !== 0n) {
+    const q = or_ / r;
+    const tr = or_ - q * r; or_ = r; r = tr;
+    const ts = os_ - q * s; os_ = s; s = ts;
+  }
+  if (or_ !== 1n) throw new Error('no inv');
+  return mod(os_, m);
+}
+
+function rol(x, n) { return ((x << n) | (x >>> (32 - n))) >>> 0; }
+
+function ripemd160(msg) {
+  const r1 = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
+              7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,
+              3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,
+              1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,
+              4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+  const r2 = [5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,
+              6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,
+              15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,
+              8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,
+              12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+  const s1 = [11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,
+              7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,
+              11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,
+              11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,
+              9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+  const s2 = [8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,
+              9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,
+              9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,
+              15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,
+              8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+  const K1 = [0x00000000,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E];
+  const K2 = [0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0x00000000];
+
+  function f(j, x, y, z) {
+    if (j < 16) return x ^ y ^ z;
+    if (j < 32) return (x & y) | (~x & z);
+    if (j < 48) return (x | ~y) ^ z;
+    if (j < 64) return (x & z) | (y & ~z);
+    return x ^ (y | ~z);
+  }
+  function f2(j, x, y, z) {
+    if (j < 16) return x ^ (y | ~z);
+    if (j < 32) return (x & z) | (y & ~z);
+    if (j < 48) return (x | ~y) ^ z;
+    if (j < 64) return (x & y) | (~x & z);
+    return x ^ y ^ z;
+  }
+
+  const len = msg.length;
+  const bitLen = len * 8;
+  const paddedLen = ((len + 9 + 63) & ~63);
+  const buf = new Uint8Array(paddedLen);
+  buf.set(msg);
+  buf[len] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(paddedLen - 8, bitLen >>> 0, true);
+  dv.setUint32(paddedLen - 4, Math.floor(bitLen / 0x100000000) >>> 0, true);
+
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+
+  for (let i = 0; i < paddedLen; i += 64) {
+    const X = [];
+    for (let j = 0; j < 16; j++) X.push(dv.getUint32(i + j * 4, true));
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    let A = h0, B = h1, C = h2, D = h3, E = h4;
+    for (let j = 0; j < 80; j++) {
+      const t = (rol((a + f(j, b, c, d) + X[r1[j]] + K1[(j / 16) | 0]) >>> 0, s1[j]) + e) >>> 0;
+      a = e; e = d; d = rol(c, 10); c = b; b = t;
+      const t2 = (rol((A + f2(j, B, C, D) + X[r2[j]] + K2[(j / 16) | 0]) >>> 0, s2[j]) + E) >>> 0;
+      A = E; E = D; D = rol(C, 10); C = B; B = t2;
+    }
+    const t = (h1 + c + D) >>> 0;
+    h1 = (h2 + d + E) >>> 0;
+    h2 = (h3 + e + A) >>> 0;
+    h3 = (h4 + a + B) >>> 0;
+    h4 = (h0 + b + C) >>> 0;
+    h0 = t;
+  }
+  const out = new Uint8Array(20);
+  const odv = new DataView(out.buffer);
+  odv.setUint32(0, h0, true);
+  odv.setUint32(4, h1, true);
+  odv.setUint32(8, h2, true);
+  odv.setUint32(12, h3, true);
+  odv.setUint32(16, h4, true);
+  return out;
+}
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58decode(str) {
+  let num = 0n;
+  for (const ch of str) {
+    const idx = B58.indexOf(ch);
+    if (idx < 0) throw new Error('недопустимый символ: ' + ch);
+    num = num * 58n + BigInt(idx);
+  }
+  let hex = num.toString(16);
+  if (hex.length % 2) hex = '0' + hex;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  let zeros = 0;
+  while (zeros < str.length && str[zeros] === '1') zeros++;
+  const out = new Uint8Array(zeros + bytes.length);
+  out.set(bytes, zeros);
+  return out;
+}
+
+function addressToH160Hex(addr) {
+  const raw = base58decode(addr);
+  if (raw.length !== 25) throw new Error('длина адреса != 25');
+  return [...raw.slice(1, 21)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* =========================================================================
+   WORKER CODE
+   ========================================================================= */
+function buildWorkerCode() {
+  return [
+    "const P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;",
+    "const N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;",
+    "const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;",
+    "const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;",
+    "function mod(a,m){const r=a%m;return r>=0n?r:r+m;}",
+    "function modInv(a,m){let or_=mod(a,m),r=m,os_=1n,s=0n;while(r!==0n){const q=or_/r;const tr=or_-q*r;or_=r;r=tr;const ts=os_-q*s;os_=s;s=ts;}if(or_!==1n)throw new Error('no inv');return mod(os_,m);}",
+    "function pointAddAff(A,B){if(A===null)return B;if(B===null)return A;const x1=A[0],y1=A[1],x2=B[0],y2=B[1];let lam;if(x1===x2){if(mod(y1+y2,P)===0n)return null;lam=mod((3n*x1*x1)*modInv(2n*y1,P),P);}else{lam=mod((y2-y1)*modInv(mod(x2-x1,P),P),P);}const x3=mod(lam*lam-x1-x2,P);const y3=mod(lam*(x1-x3)-y1,P);return[x3,y3];}",
+    "function mulG(k){k=mod(k,N);let R=null,Q=[Gx,Gy];while(k>0n){if(k&1n)R=pointAddAff(R,Q);Q=pointAddAff(Q,Q);k>>=1n;}return R;}",
+    "function jacDouble(X1,Y1,Z1){if(Z1===0n)return[0n,0n,0n];const YY=mod(Y1*Y1,P);const S=mod(4n*X1*YY,P);const M=mod(3n*X1*X1,P);const X3=mod(M*M-2n*S,P);const Y3=mod(M*(S-X3)-8n*YY*YY,P);const Z3=mod(2n*Y1*Z1,P);return[X3,Y3,Z3];}",
+    "function jacAddAffine(X1,Y1,Z1,x2,y2){if(Z1===0n)return[x2,y2,1n];const Z1Z1=mod(Z1*Z1,P);const U2=mod(x2*Z1Z1,P);const S2=mod(y2*Z1*Z1Z1,P);const H=mod(U2-X1,P);const R=mod(S2-Y1,P);if(H===0n){if(R===0n)return jacDouble(X1,Y1,Z1);return[0n,0n,0n];}const HH=mod(H*H,P);const HHH=mod(H*HH,P);const V=mod(X1*HH,P);const X3=mod(R*R-HHH-2n*V,P);const Y3=mod(R*(V-X3)-Y1*HHH,P);const Z3=mod(Z1*H,P);return[X3,Y3,Z3];}",
+    "function batchToAffine(xs,ys,zs){const n=xs.length;const prefix=new Array(n);let acc=1n;for(let i=0;i<n;i++){prefix[i]=acc;acc=mod(acc*zs[i],P);}let inv=modInv(acc,P);const ax=new Array(n),ay=new Array(n);for(let i=n-1;i>=0;i--){const zi=mod(inv*prefix[i],P);inv=mod(inv*zs[i],P);const zi2=mod(zi*zi,P);const zi3=mod(zi2*zi,P);ax[i]=mod(xs[i]*zi2,P);ay[i]=mod(ys[i]*zi3,P);}return[ax,ay];}",
+    "function rol(x,n){return((x<<n)|(x>>>(32-n)))>>>0;}",
+    "function ripemd160(msg){",
+    "const r1=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];",
+    "const r2=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];",
+    "const s1=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];",
+    "const s2=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];",
+    "const K1=[0x00000000,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E];",
+    "const K2=[0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0x00000000];",
+    "function f(j,x,y,z){if(j<16)return x^y^z;if(j<32)return(x&y)|(~x&z);if(j<48)return(x|~y)^z;if(j<64)return(x&z)|(y&~z);return x^(y|~z);}",
+    "function f2(j,x,y,z){if(j<16)return x^(y|~z);if(j<32)return(x&z)|(y&~z);if(j<48)return(x|~y)^z;if(j<64)return(x&y)|(~x&z);return x^y^z;}",
+    "const len=msg.length;const bitLen=len*8;const paddedLen=((len+9+63)&~63);",
+    "const buf=new Uint8Array(paddedLen);buf.set(msg);buf[len]=0x80;",
+    "const dv=new DataView(buf.buffer);",
+    "dv.setUint32(paddedLen-8,bitLen>>>0,true);",
+    "dv.setUint32(paddedLen-4,Math.floor(bitLen/0x100000000)>>>0,true);",
+    "let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;",
+    "for(let i=0;i<paddedLen;i+=64){",
+    "const X=[];for(let j=0;j<16;j++)X.push(dv.getUint32(i+j*4,true));",
+    "let a=h0,b=h1,c=h2,d=h3,e=h4;let A=h0,B=h1,C=h2,D=h3,E=h4;",
+    "for(let j=0;j<80;j++){",
+    "const t=(rol((a+f(j,b,c,d)+X[r1[j]]+K1[(j/16)|0])>>>0,s1[j])+e)>>>0;",
+    "a=e;e=d;d=rol(c,10);c=b;b=t;",
+    "const t2=(rol((A+f2(j,B,C,D)+X[r2[j]]+K2[(j/16)|0])>>>0,s2[j])+E)>>>0;",
+    "A=E;E=D;D=rol(C,10);C=B;B=t2;}",
+    "const t=(h1+c+D)>>>0;",
+    "h1=(h2+d+E)>>>0;h2=(h3+e+A)>>>0;h3=(h4+a+B)>>>0;h4=(h0+b+C)>>>0;h0=t;}",
+    "const out=new Uint8Array(20);const odv=new DataView(out.buffer);",
+    "odv.setUint32(0,h0,true);odv.setUint32(4,h1,true);odv.setUint32(8,h2,true);",
+    "odv.setUint32(12,h3,true);odv.setUint32(16,h4,true);return out;}",
+    "async function sha256(b){return new Uint8Array(await crypto.subtle.digest('SHA-256',b));}",
+    "async function hash160Hex(x,y){",
+    "const pub=new Uint8Array(33);pub[0]=(y&1n)?0x03:0x02;",
+    "const xh=x.toString(16).padStart(64,'0');",
+    "for(let i=0;i<32;i++)pub[1+i]=parseInt(xh.substr(i*2,2),16);",
+    "const s1=await sha256(pub);",
+    "const h=ripemd160(s1);",
+    "let out='';for(let i=0;i<h.length;i++)out+=h[i].toString(16).padStart(2,'0');",
+    "return out;}",
+    "let running=false;",
+    "self.onmessage=async(e)=>{",
+    "const d=e.data;",
+    "if(d.cmd==='stop'){running=false;return;}",
+    "if(d.cmd!=='run')return;",
+    "running=true;",
+    "const start=BigInt(d.start);",
+    "const end=BigInt(d.end);",
+    "const target=d.target;",
+    "const id=d.id;",
+    "let rangeStart=start,rangeEnd=end;",
+    "if(d.workerCount>1){",
+    "const total=end-start+1n;",
+    "const chunk=total/BigInt(d.workerCount)+1n;",
+    "rangeStart=start+chunk*BigInt(id);",
+    "rangeEnd=rangeStart+chunk-1n;",
+    "if(rangeEnd>end)rangeEnd=end;",
+    "if(rangeStart>end){self.postMessage({type:'done'});return;}",
+    "}",
+    "const startPt=mulG(rangeStart);",
+    "if(startPt===null){self.postMessage({type:'done'});return;}",
+    "let X=startPt[0],Y=startPt[1],Z=1n;",
+    "let k=rangeStart;",
+    "let count=0n;let lastReport=Date.now();",
+    "const BATCH=64;",
+    "while(running){",
+    "const bufX=[],bufY=[],bufZ=[],bufK=[];",
+    "for(let i=0;i<BATCH;i++){",
+    "if(k>rangeEnd)break;",
+    "bufX.push(X);bufY.push(Y);bufZ.push(Z);bufK.push(k);",
+    "const nxt=jacAddAffine(X,Y,Z,Gx,Gy);",
+    "X=nxt[0];Y=nxt[1];Z=nxt[2];",
+    "k+=1n;}",
+    "if(bufX.length===0){self.postMessage({type:'done'});return;}",
+    "const res=batchToAffine(bufX,bufY,bufZ);",
+    "const ax=res[0],ay=res[1];",
+    "for(let i=0;i<ax.length;i++){",
+    "const h=await hash160Hex(ax[i],ay[i]);",
+    "if(h===target){",
+    "self.postMessage({type:'HIT',key:bufK[i].toString(16),hash:h,worker:id});",
+    "running=false;return;}",
+    "}",
+    "count+=BigInt(ax.length);",
+    "const now=Date.now();",
+    "if(now-lastReport>300){",
+    "self.postMessage({type:'STAT',count:count.toString()});",
+    "count=0n;lastReport=now;}",
+    "if(k>rangeEnd){self.postMessage({type:'done'});return;}",
+    "}};"
+  ].join("\n");
+}
+
+/* =========================================================================
+   UI
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+const EMOJIS = ['🍒','🍋','🍊','🔔','⭐','💎','🍀','7️⃣','🎰','🪙'];
+
+let spinning = false;
+let workers = [];
+let lastCounts = new Map();
+let startTime = 0;
+let globalCount = 0n;
+let rateTimer = null;
+let emojiTimer = null;
+
+function randomEmoji() {
+  return EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+}
+
+function setResult(html, cls) {
+  const el = $('result');
+  el.innerHTML = html;
+  el.className = 'result ' + (cls || '');
+}
+
+function setResultLines(lines, cls) {
+  const html = lines.map(l => '<div class="line">' + l + '</div>').join('');
+  setResult(html, cls);
+}
+
+function validateInputs() {
+  const addr = $('addr').value.trim();
+  const sHex = $('start').value.trim().replace(/^0x/i, '');
+  const eHex = $('end').value.trim().replace(/^0x/i, '');
+
+  let h160, s, e;
+  try {
+    h160 = addressToH160Hex(addr);
+  } catch (err) {
+    $('h160Info').textContent = '❌ Адрес: ' + err.message;
+    $('h160Info').className = 'h160-info err';
+    return null;
+  }
+  try {
+    s = BigInt('0x' + sHex);
+    e = BigInt('0x' + eHex);
+  } catch (err) {
+    $('h160Info').textContent = '❌ Hex диапазон: некорректный';
+    $('h160Info').className = 'h160-info err';
+    return null;
+  }
+  if (e < s) {
+    $('h160Info').textContent = '❌ Конец диапазона меньше начала';
+    $('h160Info').className = 'h160-info err';
+    return null;
+  }
+
+  const size = e - s + 1n;
+  $('h160Info').textContent = '✅ hash160 цели: ' + h160 + '  |  размер: ' + size.toString();
+  $('h160Info').className = 'h160-info ok';
+  return { h160, s, e };
+}
+
+function startEmojiSpin() {
+  const slots = ['slot1','slot2','slot3'].map(id => $(id));
+  slots.forEach(s => s.className = 'slot spinning');
+  if (emojiTimer) clearInterval(emojiTimer);
+  emojiTimer = setInterval(() => {
+    slots.forEach(s => { s.textContent = randomEmoji(); });
+  }, 70);
+}
+
+function stopEmojiSpin() {
+  if (emojiTimer) { clearInterval(emojiTimer); emojiTimer = null; }
+}
+
+function showWin(emoji) {
+  const slots = ['slot1','slot2','slot3'].map(id => $(id));
+  slots.forEach(s => {
+    s.textContent = emoji;
+    s.className = 'slot win';
+  });
+}
+
+function showLose() {
+  const slots = ['slot1','slot2','slot3'].map(id => $(id));
+  slots.forEach(s => {
+    s.textContent = randomEmoji();
+    s.className = 'slot';
+  });
+}
+
+function startRateTimer() {
+  if (rateTimer) clearInterval(rateTimer);
+  rateTimer = setInterval(() => {
+    const elapsed = Math.max(0.001, (Date.now() - startTime) / 1000);
+    const rate = Number(globalCount) / elapsed / 1000;
+    $('rate').textContent = rate.toFixed(1);
+    $('count').textContent = Number(globalCount).toLocaleString('en-US');
+    $('time').textContent = elapsed.toFixed(1);
+  }, 200);
+}
+
+function stopRateTimer() {
+  if (rateTimer) { clearInterval(rateTimer); rateTimer = null; }
+}
+
+function killWorkers() {
+  workers.forEach(w => { try { w.terminate(); } catch(e){} });
+  workers = [];
+  lastCounts.clear();
+  stopRateTimer();
+  stopEmojiSpin();
+}
+
+function spin() {
+  if (spinning) return;
+
+  const params = validateInputs();
+  if (!params) {
+    setResultLines(['❌ Проверьте адрес и диапазон'], '');
+    return;
+  }
+
+  spinning = true;
+  $('spin').disabled = true;
+  $('spin').textContent = '⏳ ИЩЕМ...';
+
+  startEmojiSpin();
+  setResultLines(['🔍 Идёт поиск...'], 'searching');
+
+  globalCount = 0n;
+  startTime = Date.now();
+  lastCounts.clear();
+  startRateTimer();
+
+  const nw = Math.max(2, Math.min(8, (navigator.hardwareConcurrency || 4)));
+  const blob = new Blob([buildWorkerCode()], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+
+  const state = { found: false, hit: null };
+
+  for (let i = 0; i < nw; i++) {
+    const w = new Worker(url);
+    w.onmessage = (e) => handleWorkerMessage(e, i, state);
+    w.onerror = (err) => console.error('worker error', err);
+    w.postMessage({
+      cmd: 'run',
+      start: params.s.toString(),
+      end: params.e.toString(),
+      target: params.h160,
+      id: i,
+      workerCount: nw
+    });
+    workers.push(w);
+  }
+  URL.revokeObjectURL(url);
+}
+
+function handleWorkerMessage(e, workerIdx, state) {
+  const d = e.data;
+  if (d.type === 'STAT') {
+    lastCounts.set(workerIdx, (lastCounts.get(workerIdx) || 0n) + BigInt(d.count));
+    globalCount = 0n;
+    for (const v of lastCounts.values()) globalCount += v;
+  } else if (d.type === 'HIT') {
+    if (state.found) return;
+    state.found = true;
+    state.hit = d;
+    finishSpin(state);
+  } else if (d.type === 'done') {
+    lastCounts.set('done_' + workerIdx, 1n);
+    let doneCount = 0;
+    for (const k of lastCounts.keys()) if (typeof k === 'string' && k.startsWith('done_')) doneCount++;
+    if (doneCount >= workers.length && !state.found) {
+      finishSpin(state);
+    }
+  }
+}
+
+function finishSpin(state) {
+  killWorkers();
+  spinning = false;
+  $('spin').disabled = false;
+  $('spin').textContent = '🎲 КРУТИТЬ';
+
+  const addr = $('addr').value.trim();
+
+  if (state.found && state.hit) {
+    const lucky = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+    showWin(lucky);
+
+    setResultLines([
+      '💎💎💎 <b>НАЙДЕНО!</b>',
+      '<span class="label">Приватный ключ:</span> <span class="key">0x' + state.hit.key + '</span>',
+      '<span class="label">Адрес:</span> <span class="addr">' + addr + '</span>'
+    ], 'win');
+  } else {
+    showLose();
+    setResultLines(['😢 Не нашли в этом диапазоне. Попробуйте расширить.'], '');
+  }
+}
+
+/* =========================================================================
+   Старт
+   ========================================================================= */
+window.addEventListener('DOMContentLoaded', function () {
+  $('spin').addEventListener('click', spin);
+
+  ['addr','start','end'].forEach(id => {
+    $(id).addEventListener('input', validateInputs);
+    $(id).addEventListener('change', validateInputs);
+  });
+
+  validateInputs();
+
+  try {
+    const h = ripemd160(new Uint8Array(0));
+    const hex = [...h].map(b => b.toString(16).padStart(2, '0')).join('');
+    if (hex === '9c1185a5c5e9fc54612808977ee8f548b2258d31') {
+      console.log('✅ RIPEMD-160 OK');
+    } else {
+      console.error('❌ RIPEMD-160 FAILED:', hex);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+});
+</script>
+
+</body>
+</html>
