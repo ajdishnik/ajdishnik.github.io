@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 Bitcoin Puzzle — Поиск по диапазону</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at top, #1a1a2e, #0d0d12);
+    color: white;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    padding: 16px;
+  }
+
+  .casino {
+    width: 540px;
+    padding: 24px;
+    background: linear-gradient(180deg, #1e1e2a, #16161d);
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,213,74,0.1);
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    color: #ffd54a;
+    font-size: 26px;
+    text-shadow: 0 0 20px rgba(255,213,74,0.4);
+  }
+
+  .subtitle {
+    color: #8b949e;
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+
+  .panel {
+    background: #0f0f15;
+    border: 1px solid #2a2a36;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 16px;
+    text-align: left;
+    font-size: 12px;
+  }
+
+  .panel .field { margin-bottom: 10px; }
+  .panel .field:last-child { margin-bottom: 0; }
+
+  .panel label {
+    display: block;
+    margin-bottom: 4px;
+    color: #8b949e;
+    font-size: 11px;
+  }
+
+  input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #33333f;
+    border-radius: 8px;
+    background: #1a1a22;
+    color: white;
+    font-size: 13px;
+    outline: none;
+    font-family: Consolas, monospace;
+  }
+
+  input:focus { border-color: #ffd54a; }
+  input:disabled { opacity: 0.6; }
+
+  .row-inline { display: flex; gap: 8px; }
+  .row-inline > div { flex: 1; }
+
+  .h160-info {
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    color: #555;
+    margin-top: 8px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  .h160-info.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    overflow: hidden;
+    transition: max-height 0.25s, opacity 0.25s, margin-top 0.25s;
+  }
+
+  .h160-toggle {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #14141c;
+    border: 1px solid #2a2a36;
+    border-radius: 6px;
+    color: #8b949e;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .h160-toggle:hover {
+  border-color: #7ab8ff;
+  color: #7ab8ff;
+}
+
+.h160-toggle.open {
+  color: #7ab8ff;
+  border-color: #7ab8ff;
+}
+
+.h160-toggle::before {
+  content: '▸ ';
+  color: inherit;              /* стрелка того же цвета, что и текст */
+}
+
+.h160-toggle.open::before {
+  content: '▾ ';
+}
+
+  .h160-info.ok  { color: #54e878; }
+  .h160-info.err { color: #ff5c5c; }
+  .h160-info.warn { color: #ffb84a; }
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 360px;      /* чтобы 9 ячеек не расползались */
+  margin: 24px auto;     /* центрируем блок по горизонтали */
+  justify-content: center;
+}
+
+.slot {
+  width: 100%;
+  aspect-ratio: 1 / 1;        /* квадрат */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #1a1a22;
+  border: 2px solid #3b3b47;
+  border-radius: 14px;
+  font-size: 34px;
+  transition: transform 0.08s, border-color 0.2s, box-shadow 0.2s;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+  .slot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+    pointer-events: none;
+  }
+
+  .slot.spinning {
+    border-color: #ffd54a;
+    box-shadow: 0 0 25px rgba(255,213,74,0.5), inset 0 0 25px rgba(255,213,74,0.15);
+  }
+
+  .slot.win {
+    border-color: #54e878;
+    box-shadow: 0 0 35px rgba(84,232,120,0.8), inset 0 0 35px rgba(84,232,120,0.25);
+    background: #143020;
+    animation: slotPulse 0.6s ease-in-out infinite alternate;
+  }
+
+  .slot.stop {
+    border-color: #ff5c5c;
+    box-shadow: 0 0 15px rgba(255,92,92,0.4);
+  }
+
+  @keyframes slotPulse {
+    from { transform: scale(1); }
+    to   { transform: scale(1.06); }
+  }
+
+  .controls { display: flex; gap: 10px; }
+
+  button {
+    width: 100%;
+    padding: 14px;
+    border: 0;
+    border-radius: 12px;
+    background: #ffd54a;
+    color: #171717;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  button:hover:not(:disabled) { background: #ffe477; transform: translateY(-1px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  button.stop-mode {
+    background: #ff5c5c;
+    color: #fff;
+  }
+  button.stop-mode:hover:not(:disabled) {
+    background: #ff7777;
+  }
+
+  .result {
+    min-height: 90px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    font-family: Consolas, monospace;
+    text-align: left;
+    background: #0f0f15;
+    border: 1px solid #2a2a36;
+    color: #8b949e;
+    transition: all 0.3s;
+    word-break: break-word;
+  }
+
+  .result .line { margin: 2px 0; }
+  .result .label { color: #777; }
+  .result .key {
+    color: #ffd54a;
+    font-weight: bold;
+    word-break: break-all;
+  }
+  .result .addr {
+    color: #7ab8ff;
+    word-break: break-all;
+  }
+
+  .result.searching { color: #ffd54a; }
+  .result.stopped   { color: #ff9c9c; }
+
+  .result.win {
+    background: #0f2a1a;
+    border-color: #54e878;
+    color: #c8ffd8;
+    box-shadow: 0 0 25px rgba(84,232,120,0.25);
+  }
+  .result.win .key  { color: #8fffb8; }
+  .result.win .addr { color: #a8e0ff; }
+
+  .current-block {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #0a0a10;
+    border: 1px solid #2a2a36;
+    border-radius: 10px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    text-align: left;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .current-block.active {
+    border-color: #ffd54a;
+    box-shadow: 0 0 15px rgba(255,213,74,0.15);
+  }
+
+  .cb-label {
+    color: #8b949e;
+    font-size: 10px;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .cb-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .cb-from, .cb-to {
+    color: #7ab8ff;
+    background: #14141c;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    word-break: break-all;
+    border: 1px solid #1e1e28;
+  }
+
+  .cb-arrow {
+    color: #555;
+    font-size: 12px;
+  }
+
+  .cb-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #555;
+  }
+
+  .cb-meta b {
+    color: #8b949e;
+    font-weight: normal;
+  }
+
+  .progress-wrap {
+    margin-top: 14px;
+    height: 8px;
+    background: #0f0f15;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #2a2a36;
+  }
+
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ffd54a, #ffb700);
+    transition: width 0.2s linear;
+    border-radius: 6px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: #0f0f15;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #777;
+    font-family: Consolas, monospace;
+  }
+
+  .stats b { color: #58a6ff; }
+
+  .hint {
+    margin-top: 10px;
+    font-size: 10px;
+    color: #555;
+    text-align: center;
+  }
+  .hint kbd {
+    background: #2a2a36;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: Consolas, monospace;
+    color: #aaa;
+  }
+
+  .found-keys {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #0a1410;
+    border: 1px solid #1e4a2a;
+    border-radius: 10px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    text-align: left;
+  }
+
+  .fk-label {
+    color: #54e878;
+    font-size: 10px;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .fk-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .fk-item {
+    padding: 8px 10px;
+    background: #0f1a13;
+    border: 1px solid #1e3a26;
+    border-radius: 6px;
+    line-height: 1.5;
+  }
+
+  .fk-item .fk-key {
+    color: #8fffb8;
+    font-weight: bold;
+    word-break: break-all;
+  }
+
+  .fk-item .fk-addr {
+    color: #7ab8ff;
+    word-break: break-all;
+  }
+
+  .fk-item .fk-num {
+    color: #555;
+    font-size: 10px;
+    margin-right: 6px;
+  }
+
+  .fk-clear {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 5px 8px;
+    background: #14141c;
+    border: 1px solid #2a2a36;
+    border-radius: 6px;
+    color: #8b949e;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .fk-clear:hover {
+    border-color: #ff5c5c;
+    color: #ff5c5c;
+  }
+  
+  
+  
+  
+.current-block {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #0a0a10;
+  border: 1px solid #2a2a36;
+  border-radius: 10px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  text-align: left;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+  
+.cb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 75px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cb-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #0f0f15;
+  border: 1px solid #1a1a22;
+  transition: background 0.25s, border-color 0.25s;
+}
+
+.cb-row.fresh {
+  background: #1a1a10;
+  border-color: #ffd54a;
+}
+
+.cb-row .cb-w {
+  color: #555;
+  font-size: 10px;
+  min-width: 26px;
+}
+
+.cb-row .cb-from,
+.cb-row .cb-to {
+  color: #7ab8ff;
+  font-size: 10px;
+  word-break: break-all;
+}
+
+.cb-row .cb-arrow {
+  color: #555;
+  font-size: 11px;
+}
+
+.cb-row .cb-len {
+  color: #555;
+  font-size: 10px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.cb-empty {
+  color: #555;
+  font-size: 11px;
+}
+  
+  
+  
+</style>
+</head>
+
+<body>
+
+<div class="casino">
+  <h1>🎰 Bitcoin</h1>
+
+  <div class="panel">
+    <div class="field">
+      <label>Целевой BTC-адрес:</label>
+      <input id="addr" value="1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU" placeholder="1...">
+    </div>
+
+    <div class="field">
+      <label>Диапазон ключей (hex, без 0x):</label>
+      <div class="row-inline">
+        <div><input id="start" value="400000000000000000" placeholder="от"></div>
+        <div><input id="end" value="7fffffffffffffffff" placeholder="до"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Размер блока (ключей подряд с одного старта):</label>
+      <input id="blockSize" value="10000" placeholder="10000">
+      <div style="font-size:10px;color:#555;margin-top:4px">
+        Меньше = больше «прыжков», но чуть медленнее. 10 000 — оптимально.
+      </div>
+    </div>
+	
+	
+
+<button type="button" class="h160-toggle" id="h160Toggle">Показать детали цели</button>
+
+<div class="h160-info collapsed" id="h160Info">—</div>
+
+<div class="h160-info collapsed" id="h160Extra">
+  <div class="field" style="margin-top:8px">
+    <label>Потоков (воркеров):</label>
+    <input id="threads" value="1" placeholder="1">
+    <div style="font-size:10px;color:#555;margin-top:4px">
+      1 — минимум нагрева. Не ставьте больше числа ядер телефона.
+    </div>
+  </div>
+</div>
+
+
+  </div>
+
+<div class="slots">
+  <div class="slot" id="slot1">❓</div>
+  <div class="slot" id="slot2">❓</div>
+  <div class="slot" id="slot3">❓</div>
+  <div class="slot" id="slot4">❓</div>
+  <div class="slot" id="slot5">❓</div>
+  <div class="slot" id="slot6">❓</div>
+  <div class="slot" id="slot7">❓</div>
+  <div class="slot" id="slot8">❓</div>
+  <div class="slot" id="slot9">❓</div>
+</div>
+
+  <div class="controls">
+    <button id="spin">🎲 КРУТИТЬ</button>
+  </div>
+
+  <div class="result" id="result">
+    Нажмите «Крутить», чтобы начать поиск
+  </div>
+
+  <div class="found-keys" id="foundKeys" style="display:none">
+    <div class="fk-label">🏆 Найденные ключи</div>
+    <div class="fk-list" id="fkList"></div>
+  </div>
+
+
+<div class="current-block" id="currentBlock">
+  <div class="cb-label">🔍 Последние выданные блоки</div>
+  <div class="cb-list" id="cbList">
+    <div class="cb-empty">—</div>
+  </div>
+</div>
+
+
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progress"></div>
+  </div>
+
+  <div class="stats">
+    <div>Скорость: <b id="rate">0</b> k/s</div>
+    <div>Проверено: <b id="count">0</b></div>
+    <div>Прогресс: <b id="percent">0.0%</b></div>
+    <div>Осталось: <b id="eta">—</b></div>
+    <div>Блоков: <b id="blocks">0 / 0</b></div>
+    <div>Время: <b id="time">0.0</b> с</div>
+  </div>
+
+  <div class="hint">
+    <kbd>Enter</kbd> — старт/стоп • <kbd>Esc</kbd> — стоп
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   secp256k1 + RIPEMD-160 + base58
+   ========================================================================= */
+const P  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const N  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+
+function mod(a, m) { const r = a % m; return r >= 0n ? r : r + m; }
+
+function rol(x, n) { return ((x << n) | (x >>> (32 - n))) >>> 0; }
+
+function ripemd160(msg) {
+  const r1 = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
+              7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,
+              3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,
+              1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,
+              4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+  const r2 = [5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,
+              6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,
+              15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,
+              8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,
+              12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+  const s1 = [11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,
+              7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,
+              11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,
+              11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,
+              9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+  const s2 = [8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,
+              9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,
+              9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,
+              15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,
+              8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+  const K1 = [0x00000000,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E];
+  const K2 = [0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0x00000000];
+
+  function f(j, x, y, z) {
+    if (j < 16) return x ^ y ^ z;
+    if (j < 32) return (x & y) | (~x & z);
+    if (j < 48) return (x | ~y) ^ z;
+    if (j < 64) return (x & z) | (y & ~z);
+    return x ^ (y | ~z);
+  }
+  function f2(j, x, y, z) {
+    if (j < 16) return x ^ (y | ~z);
+    if (j < 32) return (x & z) | (y & ~z);
+    if (j < 48) return (x | ~y) ^ z;
+    if (j < 64) return (x & y) | (~x & z);
+    return x ^ y ^ z;
+  }
+
+  const len = msg.length;
+  const bitLen = len * 8;
+  const paddedLen = ((len + 9 + 63) & ~63);
+  const buf = new Uint8Array(paddedLen);
+  buf.set(msg);
+  buf[len] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(paddedLen - 8, bitLen >>> 0, true);
+  dv.setUint32(paddedLen - 4, Math.floor(bitLen / 0x100000000) >>> 0, true);
+
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+
+  for (let i = 0; i < paddedLen; i += 64) {
+    const X = [];
+    for (let j = 0; j < 16; j++) X.push(dv.getUint32(i + j * 4, true));
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    let A = h0, B = h1, C = h2, D = h3, E = h4;
+    for (let j = 0; j < 80; j++) {
+      const t = (rol((a + f(j, b, c, d) + X[r1[j]] + K1[(j / 16) | 0]) >>> 0, s1[j]) + e) >>> 0;
+      a = e; e = d; d = rol(c, 10); c = b; b = t;
+      const t2 = (rol((A + f2(j, B, C, D) + X[r2[j]] + K2[(j / 16) | 0]) >>> 0, s2[j]) + E) >>> 0;
+      A = E; E = D; D = rol(C, 10); C = B; B = t2;
+    }
+    const t = (h1 + c + D) >>> 0;
+    h1 = (h2 + d + E) >>> 0;
+    h2 = (h3 + e + A) >>> 0;
+    h3 = (h4 + a + B) >>> 0;
+    h4 = (h0 + b + C) >>> 0;
+    h0 = t;
+  }
+  const out = new Uint8Array(20);
+  const odv = new DataView(out.buffer);
+  odv.setUint32(0, h0, true);
+  odv.setUint32(4, h1, true);
+  odv.setUint32(8, h2, true);
+  odv.setUint32(12, h3, true);
+  odv.setUint32(16, h4, true);
+  return out;
+}
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58decode(str) {
+  let num = 0n;
+  for (const ch of str) {
+    const idx = B58.indexOf(ch);
+    if (idx < 0) throw new Error('недопустимый символ: ' + ch);
+    num = num * 58n + BigInt(idx);
+  }
+  let hex = num.toString(16);
+  if (hex.length % 2) hex = '0' + hex;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  let zeros = 0;
+  while (zeros < str.length && str[zeros] === '1') zeros++;
+  const out = new Uint8Array(zeros + bytes.length);
+  out.set(bytes, zeros);
+  return out;
+}
+
+function addressToH160Hex(addr) {
+  const raw = base58decode(addr);
+  if (raw.length !== 25) throw new Error('длина адреса != 25');
+  return [...raw.slice(1, 21)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* =========================================================================
+   Утилиты
+   ========================================================================= */
+function gcd(a, b) {
+  a = a < 0n ? -a : a;
+  b = b < 0n ? -b : b;
+  while (b) { const t = b; b = a % b; a = t; }
+  return a;
+}
+
+function randomBigInt(bits) {
+  const bytes = Math.ceil(bits / 8);
+  const rnd = new Uint8Array(bytes);
+  crypto.getRandomValues(rnd);
+  let r = 0n;
+  for (const b of rnd) r = (r << 8n) | BigInt(b);
+  return r;
+}
+
+function randomCoprime(n) {
+  if (n <= 1n) return 1n;
+  const half = n / 2n;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    let a = half + (randomBigInt(64) % (n - half));
+    if (a <= 1n) a = 2n;
+    if (gcd(a, n) === 1n) return a;
+  }
+  let a = half + 1n;
+  while (gcd(a, n) !== 1n) a += 1n;
+  return a;
+}
+
+function shortHex(hex, maxLen) {
+  if (!maxLen) maxLen = 20;
+  if (hex.length <= maxLen) return hex;
+  const half = Math.floor((maxLen - 2) / 2);
+  return hex.slice(0, half) + '…' + hex.slice(-half);
+}
+
+/* =========================================================================
+   WORKER CODE
+   ========================================================================= */
+function buildWorkerCode() {
+  return [
+    "const P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;",
+    "const N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;",
+    "const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;",
+    "const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;",
+
+    "function mod(a,m){const r=a%m;return r>=0n?r:r+m;}",
+    "function modInv(a,m){let or_=mod(a,m),r=m,os_=1n,s=0n;while(r!==0n){const q=or_/r;const tr=or_-q*r;or_=r;r=tr;const ts=os_-q*s;os_=s;s=ts;}if(or_!==1n)throw new Error('no inv');return mod(os_,m);}",
+
+    "function pointAddAff(A,B){if(A===null)return B;if(B===null)return A;const x1=A[0],y1=A[1],x2=B[0],y2=B[1];let lam;if(x1===x2){if(mod(y1+y2,P)===0n)return null;lam=mod((3n*x1*x1)*modInv(2n*y1,P),P);}else{lam=mod((y2-y1)*modInv(mod(x2-x1,P),P),P);}const x3=mod(lam*lam-x1-x2,P);const y3=mod(lam*(x1-x3)-y1,P);return[x3,y3];}",
+    "function mulG(k){k=mod(k,N);let R=null,Q=[Gx,Gy];while(k>0n){if(k&1n)R=pointAddAff(R,Q);Q=pointAddAff(Q,Q);k>>=1n;}return R;}",
+
+    "function jacDouble(X1,Y1,Z1){if(Z1===0n)return[0n,0n,0n];const YY=mod(Y1*Y1,P);const S=mod(4n*X1*YY,P);const M=mod(3n*X1*X1,P);const X3=mod(M*M-2n*S,P);const Y3=mod(M*(S-X3)-8n*YY*YY,P);const Z3=mod(2n*Y1*Z1,P);return[X3,Y3,Z3];}",
+    "function jacAddAffine(X1,Y1,Z1,x2,y2){if(Z1===0n)return[x2,y2,1n];const Z1Z1=mod(Z1*Z1,P);const U2=mod(x2*Z1Z1,P);const S2=mod(y2*Z1*Z1Z1,P);const H=mod(U2-X1,P);const R=mod(S2-Y1,P);if(H===0n){if(R===0n)return jacDouble(X1,Y1,Z1);return[0n,0n,0n];}const HH=mod(H*H,P);const HHH=mod(H*HH,P);const V=mod(X1*HH,P);const X3=mod(R*R-HHH-2n*V,P);const Y3=mod(R*(V-X3)-Y1*HHH,P);const Z3=mod(Z1*H,P);return[X3,Y3,Z3];}",
+    "function batchToAffine(xs,ys,zs){const n=xs.length;const prefix=new Array(n);let acc=1n;for(let i=0;i<n;i++){prefix[i]=acc;acc=mod(acc*zs[i],P);}let inv=modInv(acc,P);const ax=new Array(n),ay=new Array(n);for(let i=n-1;i>=0;i--){const zi=mod(inv*prefix[i],P);inv=mod(inv*zs[i],P);const zi2=mod(zi*zi,P);const zi3=mod(zi2*zi,P);ax[i]=mod(xs[i]*zi2,P);ay[i]=mod(ys[i]*zi3,P);}return[ax,ay];}",
+
+    "function rol(x,n){return((x<<n)|(x>>>(32-n)))>>>0;}",
+    "function ripemd160(msg){",
+    "const r1=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];",
+    "const r2=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];",
+    "const s1=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];",
+    "const s2=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];",
+    "const K1=[0x00000000,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E];",
+    "const K2=[0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0x00000000];",
+    "function f(j,x,y,z){if(j<16)return x^y^z;if(j<32)return(x&y)|(~x&z);if(j<48)return(x|~y)^z;if(j<64)return(x&z)|(y&~z);return x^(y|~z);}",
+    "function f2(j,x,y,z){if(j<16)return x^(y|~z);if(j<32)return(x&z)|(y&~z);if(j<48)return(x|~y)^z;if(j<64)return(x&y)|(~x&z);return x^y^z;}",
+    "const len=msg.length;const bitLen=len*8;const paddedLen=((len+9+63)&~63);",
+    "const buf=new Uint8Array(paddedLen);buf.set(msg);buf[len]=0x80;",
+    "const dv=new DataView(buf.buffer);",
+    "dv.setUint32(paddedLen-8,bitLen>>>0,true);",
+    "dv.setUint32(paddedLen-4,Math.floor(bitLen/0x100000000)>>>0,true);",
+    "let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;",
+    "for(let i=0;i<paddedLen;i+=64){",
+    "const X=[];for(let j=0;j<16;j++)X.push(dv.getUint32(i+j*4,true));",
+    "let a=h0,b=h1,c=h2,d=h3,e=h4;let A=h0,B=h1,C=h2,D=h3,E=h4;",
+    "for(let j=0;j<80;j++){",
+    "const t=(rol((a+f(j,b,c,d)+X[r1[j]]+K1[(j/16)|0])>>>0,s1[j])+e)>>>0;",
+    "a=e;e=d;d=rol(c,10);c=b;b=t;",
+    "const t2=(rol((A+f2(j,B,C,D)+X[r2[j]]+K2[(j/16)|0])>>>0,s2[j])+E)>>>0;",
+    "A=E;E=D;D=rol(C,10);C=B;B=t2;}",
+    "const t=(h1+c+D)>>>0;",
+    "h1=(h2+d+E)>>>0;h2=(h3+e+A)>>>0;h3=(h4+a+B)>>>0;h4=(h0+b+C)>>>0;h0=t;}",
+    "const out=new Uint8Array(20);const odv=new DataView(out.buffer);",
+    "odv.setUint32(0,h0,true);odv.setUint32(4,h1,true);odv.setUint32(8,h2,true);",
+    "odv.setUint32(12,h3,true);odv.setUint32(16,h4,true);return out;}",
+
+    "async function sha256(b){return new Uint8Array(await crypto.subtle.digest('SHA-256',b));}",
+    "async function hash160Hex(x,y){",
+    "const pub=new Uint8Array(33);pub[0]=(y&1n)?0x03:0x02;",
+    "const xh=x.toString(16).padStart(64,'0');",
+    "for(let i=0;i<32;i++)pub[1+i]=parseInt(xh.substr(i*2,2),16);",
+    "const s1=await sha256(pub);",
+    "const h=ripemd160(s1);",
+    "let out='';for(let i=0;i<h.length;i++)out+=h[i].toString(16).padStart(2,'0');",
+    "return out;}",
+
+    "let running=false;",
+    "let target='';",
+    "let id=0;",
+    "let lastReport=Date.now();",
+    "let pendingCount=0n;",
+    "const BATCH=64;",
+
+    "async function processBlock(bStart, bEnd) {",
+    "  const startPt = mulG(bStart);",
+    "  if (!startPt) return false;",
+    "  let X = startPt[0], Y = startPt[1], Z = 1n;",
+    "  let k = bStart;",
+    "  while (running && k <= bEnd) {",
+    "    const bufX=[], bufY=[], bufZ=[], bufK=[];",
+    "    for(let i=0;i<BATCH;i++){",
+    "      if (!running) break;",
+    "      if (k > bEnd) break;",
+    "      bufX.push(X); bufY.push(Y); bufZ.push(Z); bufK.push(k);",
+    "      const nxt = jacAddAffine(X, Y, Z, Gx, Gy);",
+    "      X = nxt[0]; Y = nxt[1]; Z = nxt[2];",
+    "      k += 1n;",
+    "    }",
+    "    if (bufX.length === 0) break;",
+    "    const res = batchToAffine(bufX, bufY, bufZ);",
+    "    const ax = res[0], ay = res[1];",
+    "    for(let i=0;i<ax.length;i++){",
+    "      if (!running) break;",
+    "      const h = await hash160Hex(ax[i], ay[i]);",
+    "      if (h === target) {",
+    "        self.postMessage({type:'HIT', key:bufK[i].toString(16), hash:h, worker:id});",
+    "        running=false; return true;",
+    "      }",
+    "    }",
+    "    pendingCount += BigInt(ax.length);",
+    "    const now=Date.now();",
+    "    if(now-lastReport>300){",
+    "      self.postMessage({type:'STAT', count:pendingCount.toString()});",
+    "      pendingCount=0n; lastReport=now;",
+    "    }",
+    "  }",
+    "  return false;",
+    "}",
+
+    "self.onmessage=async(e)=>{",
+    "const d=e.data;",
+    "if(d.cmd==='stop'){running=false;return;}",
+
+    "if(d.cmd==='run'){",
+    "  target=d.target;",
+    "  id=d.id;",
+    "  running=true;",
+    "  lastReport=Date.now();",
+    "  while (running) {",
+    "    self.postMessage({type:'needBlock', worker:id});",
+    "    const blockData = await new Promise((resolve) => {",
+    "      const handler = (ev) => {",
+    "        if (ev.data.cmd === 'block' || ev.data.cmd === 'noMoreBlocks') {",
+    "          self.removeEventListener('message', handler);",
+    "          resolve(ev.data);",
+    "        } else if (ev.data.cmd === 'stop') {",
+    "          self.removeEventListener('message', handler);",
+    "          running = false;",
+    "          resolve({cmd:'stop'});",
+    "        }",
+    "      };",
+    "      self.addEventListener('message', handler);",
+    "    });",
+    "    if (!running || !blockData || blockData.cmd === 'stop') break;",
+    "    if (blockData.cmd === 'noMoreBlocks') {",
+    "      if (pendingCount > 0n) {",
+    "        self.postMessage({type:'STAT', count:pendingCount.toString()});",
+    "        pendingCount=0n;",
+    "      }",
+    "      self.postMessage({type:'workerDone', worker:id});",
+    "      return;",
+    "    }",
+    "    const bStart = BigInt('0x' + blockData.start);",
+    "    const bEnd   = BigInt('0x' + blockData.end);",
+    "    const found = await processBlock(bStart, bEnd);",
+    "    if (found) return;",
+    "    self.postMessage({type:'blockDone'});",
+    "  }",
+    "  if (pendingCount > 0n) {",
+    "    self.postMessage({type:'STAT', count:pendingCount.toString()});",
+    "    pendingCount=0n;",
+    "  }",
+    "  self.postMessage({type:'workerDone', worker:id});",
+    "  return;",
+    "}",
+    "};"
+  ].join("\n");
+}
+
+/* =========================================================================
+   UI
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+const SLOT_IDS = ['slot1','slot2','slot3','slot4','slot5','slot6','slot7','slot8','slot9'];
+const SLOT_COUNT = SLOT_IDS.length;
+const EMOJIS = ['🍒','🍋','🍊','🔔','⭐','💎','🍀','7️⃣','🎰','🪙','🍇','🥝','🍉','🍎','🍏'];
+
+let winSoundCtx = null;
+let winSoundTimer = null;
+
+let spinning = false;
+let stopped = false;
+let workers = [];
+let lastCounts = new Map();
+let startTime = 0;
+let globalCount = 0n;
+let totalBlocksBig = 0n;
+let blocksDone = 0n;
+let rangeSizeGlobal = 1n;
+let rateTimer = null;
+let emojiTimer = null;      // массив из 3 интервалов
+let workerDoneSet = new Set();
+let workerCountGlobal = 0;
+let targetH160 = '';
+let rangeS = 0n;
+let rangeE = 0n;
+let blockSizeGlobal = 10000n;
+let permA = 0n;
+let permB = 0n;
+let nextBlockIdx = 0n;
+
+let foundKeys = [];
+
+function randomEmoji() {
+  return EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+}
+
+function pickThreeDistinctEmojis() {
+  const pool = [...EMOJIS];
+  const result = [];
+  for (let i = 0; i < 3; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    result.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  return result;
+}
+
+function setResultLines(lines, cls) {
+  const html = lines.map(l => '<div class="line">' + l + '</div>').join('');
+  const el = $('result');
+  el.innerHTML = html;
+  el.className = 'result ' + (cls || '');
+}
+
+function renderFoundKeys() {
+  const box = $('foundKeys');
+  const list = $('fkList');
+
+  if (foundKeys.length === 0) {
+    box.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  box.style.display = 'block';
+  list.innerHTML = foundKeys.map((item, i) =>
+    '<div class="fk-item">' +
+      '<div><span class="fk-num">#' + (i + 1) + '</span>' +
+        '<span class="fk-key">0x' + item.key + '</span></div>' +
+      '<div><span class="fk-num">→</span>' +
+        '<span class="fk-addr">' + item.addr + '</span></div>' +
+    '</div>'
+  ).join('');
+
+  if (!box.querySelector('.fk-clear')) {
+    const btn = document.createElement('button');
+    btn.className = 'fk-clear';
+    btn.textContent = '✕ Очистить историю';
+    btn.addEventListener('click', () => {
+      foundKeys = [];
+      renderFoundKeys();
+    });
+    box.appendChild(btn);
+  }
+}
+
+function setButtonState(mode) {
+  const btn = $('spin');
+  if (mode === 'idle') {
+    btn.textContent = '🎲 КРУТИТЬ';
+    btn.classList.remove('stop-mode');
+    btn.disabled = false;
+  } else if (mode === 'searching') {
+    btn.textContent = '⏹ СТОП';
+    btn.classList.add('stop-mode');
+    btn.disabled = false;
+  } else if (mode === 'locked') {
+    btn.textContent = '⏳ ИЩЕМ...';
+    btn.classList.remove('stop-mode');
+    btn.disabled = true;
+  }
+}
+
+function setInputsDisabled(disabled) {
+  ['addr','start','end','blockSize','threads'].forEach(id => { $(id).disabled = disabled; });
+}
+
+function setH160Info(text, statusClass) {
+  const el = $('h160Info');
+  const wasCollapsed = el.classList.contains('collapsed');
+  el.className = 'h160-info ' + statusClass;
+  if (wasCollapsed) el.classList.add('collapsed');
+  el.textContent = text;
+}
+
+function validateInputs() {
+  const addr = $('addr').value.trim();
+  const sHex = $('start').value.trim().replace(/^0x/i, '');
+  const eHex = $('end').value.trim().replace(/^0x/i, '');
+
+  let h160, s, e;
+  try {
+    h160 = addressToH160Hex(addr);
+  } catch (err) {
+    setH160Info('❌ Адрес: ' + err.message, 'err');
+    return null;
+  }
+  try {
+    s = BigInt('0x' + sHex);
+    e = BigInt('0x' + eHex);
+  } catch (err) {
+    setH160Info('❌ Hex диапазон: некорректный', 'err');
+    return null;
+  }
+  if (e < s) {
+    setH160Info('❌ Конец диапазона меньше начала', 'err');
+    return null;
+  }
+
+  let blockSize = 10000n;
+  const bsStr = $('blockSize').value.trim();
+  if (bsStr) {
+    try {
+      blockSize = BigInt(bsStr);
+      if (blockSize < 1n) blockSize = 1n;
+    } catch (err) {
+      setH160Info('❌ Размер блока: некорректный', 'err');
+      return null;
+    }
+  }
+
+  const size = e - s + 1n;
+  const blocksCount = (size + blockSize - 1n) / blockSize;
+
+  let cls = 'ok';
+  let warn = '';
+  if (size > 10000000000n) {
+    cls = 'warn';
+    warn = ' ⚠️ огромный диапазон';
+  }
+
+  setH160Info(
+    '✅ hash160: ' + h160 +
+    ' | ключей: ' + size.toString() +
+    ' | блоков: ' + blocksCount.toString() +
+    warn,
+    cls
+  );
+  return { h160, s, e, rangeSize: size, blockSize, blocksCount };
+}
+
+/* =========================================================================
+   Анимация слотов
+   ========================================================================= */
+function startEmojiSpin() {
+  const slots = SLOT_IDS.map(id => $(id));
+  slots.forEach(s => s.className = 'slot spinning');
+
+  stopEmojiSpin();
+
+  emojiTimer = slots.map((slot, i) => {
+    const delay = 80 + i * 15; // чуть разные скорости
+    return setInterval(() => { slot.textContent = randomEmoji(); }, delay);
+  });
+}
+
+function stopEmojiSpin() {
+  if (Array.isArray(emojiTimer)) {
+    emojiTimer.forEach((t, i) => {
+      if (t) clearInterval(t);
+      emojiTimer[i] = null;
+    });
+  }
+  emojiTimer = null;
+}
+
+/* Останавливает конкретный слот — работает даже если emojiTimer уже null */
+function stopSlot(index) {
+  if (Array.isArray(emojiTimer) && emojiTimer[index]) {
+    clearInterval(emojiTimer[index]);
+    emojiTimer[index] = null;
+  }
+}
+
+function showStopped() {
+  const slots = SLOT_IDS.map(id => $(id));
+
+  stopEmojiSpin();
+
+  slots.forEach((slot, i) => {
+    slot.textContent = randomEmoji();
+    slot.className = 'slot stop';
+  });
+}
+
+function formatETA(seconds) {
+  if (!isFinite(seconds) || seconds < 0) return '—';
+  if (seconds < 60) return seconds.toFixed(0) + ' с';
+  if (seconds < 3600) return (seconds / 60).toFixed(1) + ' мин';
+  if (seconds < 86400) return (seconds / 3600).toFixed(1) + ' ч';
+  if (seconds < 86400 * 365) return (seconds / 86400).toFixed(0) + ' дн';
+  return '∞';
+}
+
+function recalcGlobal() {
+  globalCount = 0n;
+  for (const v of lastCounts.values()) globalCount += v;
+}
+
+const CB_MAX = 10;
+let cbHistory = [];
+
+function renderCurrentBlockList() {
+  const list = $('cbList');
+  if (cbHistory.length === 0) {
+    list.innerHTML = '<div class="cb-empty">—</div>';
+    return;
+  }
+  list.innerHTML = cbHistory.map((b, i) =>
+    '<div class="cb-row' + (i === 0 ? ' fresh' : '') + '">' +
+      '<span class="cb-w">#' + b.worker + '</span>' +
+      '<span class="cb-from" title="0x' + b.fromFull + '">0x' + shortHex(b.fromFull, 14) + '</span>' +
+      '<span class="cb-arrow">→</span>' +
+      '<span class="cb-to" title="0x' + b.toFull + '">0x' + shortHex(b.toFull, 14) + '</span>' +
+      '<span class="cb-len">' + b.len + '</span>' +
+    '</div>'
+  ).join('');
+}
+
+function updateCurrentBlock(bStart, bEnd, workerId) {
+  const fromFull = bStart.toString(16);
+  const toFull = bEnd.toString(16);
+  const len = (bEnd - bStart + 1n).toString();
+
+  cbHistory.unshift({
+    fromFull,
+    toFull,
+    worker: workerId,
+    len
+  });
+  if (cbHistory.length > CB_MAX) cbHistory.length = CB_MAX;
+
+  renderCurrentBlockList();
+}
+
+function resetCurrentBlock() {
+  cbHistory = [];
+  renderCurrentBlockList();
+}
+
+
+
+function startRateTimer() {
+  if (rateTimer) clearInterval(rateTimer);
+  rateTimer = setInterval(() => {
+    if (stopped) return;
+    const elapsed = Math.max(0.001, (Date.now() - startTime) / 1000);
+    const rate = Number(globalCount) / elapsed / 1000;
+    $('rate').textContent = rate.toFixed(1);
+    $('count').textContent = Number(globalCount).toLocaleString('en-US');
+    $('time').textContent = elapsed.toFixed(1);
+
+    const done = Number(globalCount);
+    const total = Number(rangeSizeGlobal);
+    const percent = total > 0 ? Math.min(100, (done / total) * 100) : 0;
+    $('percent').textContent = (percent < 0.001 && percent > 0)
+      ? '<0.001%'
+      : percent.toFixed(3) + '%';
+    $('progress').style.width = percent + '%';
+    $('blocks').textContent = blocksDone.toString() + ' / ' + totalBlocksBig.toString();
+
+    if (rate > 0 && total > done) {
+      const remaining = (total - done) / (rate * 1000);
+      $('eta').textContent = formatETA(remaining);
+    } else {
+      $('eta').textContent = '—';
+    }
+  }, 200);
+}
+
+function stopRateTimer() {
+  if (rateTimer) { clearInterval(rateTimer); rateTimer = null; }
+}
+
+/* Воркеры — БЕЗ stopEmojiSpin, чтобы не ломать анимацию */
+function killWorkers() {
+  workers.forEach(w => {
+    try {
+      w.postMessage({ cmd: 'stop' });
+      w.terminate();
+    } catch (e) {}
+  });
+  workers = [];
+  lastCounts.clear();
+  stopRateTimer();
+}
+
+function getNextBlock() {
+  if (nextBlockIdx >= totalBlocksBig) return null;
+  const i = nextBlockIdx;
+  nextBlockIdx += 1n;
+  const permuted = mod(permA * i + permB, totalBlocksBig);
+  const bStart = rangeS + permuted * blockSizeGlobal;
+  let bEnd = bStart + blockSizeGlobal - 1n;
+  if (bEnd > rangeE) bEnd = rangeE;
+  return [bStart, bEnd];
+}
+
+function startSearch() {
+  const params = validateInputs();
+  if (!params) {
+    setResultLines(['❌ Проверьте адрес и диапазон'], '');
+    return;
+  }
+
+  stopWinSound();
+
+  spinning = true;
+  stopped = false;
+  resetCurrentBlock();
+  blocksDone = 0n;
+  workerDoneSet.clear();
+
+  setButtonState('locked');
+  setInputsDisabled(true);
+
+  startEmojiSpin();
+  setResultLines([
+    '🎲 Поиск...',
+    '<span class="label">Всего ключей:</span> ' + params.rangeSize.toString(),
+    '<span class="label">Блоков:</span> ' + params.blocksCount.toString() +
+      ' × ' + params.blockSize.toString() + ' ключей',
+    //'<span class="label">Порядок блоков:</span> псевдослучайный (O(1) память)'
+  ], 'searching');
+
+
+  globalCount = 0n;
+  rangeSizeGlobal = params.rangeSize;
+  rangeS = params.s;
+  rangeE = params.e;
+  blockSizeGlobal = params.blockSize;
+  targetH160 = params.h160;
+  startTime = Date.now();
+  lastCounts.clear();
+  totalBlocksBig = params.blocksCount;
+  nextBlockIdx = 0n;
+
+  if (totalBlocksBig > 1n) {
+    permA = randomCoprime(totalBlocksBig);
+    permB = randomBigInt(64) % totalBlocksBig;
+  } else {
+    permA = 1n;
+    permB = 0n;
+  }
+
+let nw = 1;
+try {
+  nw = parseInt($('threads').value, 10);
+  if (!Number.isFinite(nw) || nw < 1) nw = 1;
+  if (nw > 32) nw = 32;   // защита от безумия
+} catch (e) { nw = 1; }
+workerCountGlobal = nw;
+
+  const blob = new Blob([buildWorkerCode()], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+
+  for (let i = 0; i < nw; i++) {
+    const w = new Worker(url);
+    w.onmessage = (e) => handleWorkerMessage(e, i);
+    w.onerror = (err) => console.error('worker error', err);
+    w.postMessage({
+      cmd: 'run',
+      target: params.h160,
+      id: i
+    });
+    workers.push(w);
+    lastCounts.set(i, 0n);
+  }
+
+  // Отзываем URL с задержкой — чтобы воркеры успели загрузиться
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+  startRateTimer();
+
+  setTimeout(() => {
+    if (spinning) setButtonState('searching');
+  }, 100);
+}
+
+function stopSearch() {
+  if (!spinning) return;
+  stopWinSound();
+
+  stopped = true;
+  spinning = false;
+
+  killWorkers();          // воркеры + rate timer
+  setButtonState('idle');
+  setInputsDisabled(false);
+
+  showStopped();          // анимация остановки слотов (сама вызовет stopEmojiSpin в конце)
+  setResultLines(['⏹ Остановлено. Нажмите «Крутить» для нового поиска.'], 'stopped');
+}
+
+/* =========================================================================
+   Звук
+   ========================================================================= */
+function playWinSoundOnce() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    winSoundCtx = ctx;
+    const now = ctx.currentTime;
+
+    const notes = [
+      { f: 523.25, t: 0.0,  d: 0.08 },
+      { f: 523.25, t: 0.10, d: 0.08 },
+      { f: 659.25, t: 0.20, d: 0.08 },
+      { f: 783.99, t: 0.30, d: 0.08 },
+      { f: 1046.50, t: 0.40, d: 0.30 },
+    ];
+
+    notes.forEach(({ f, t, d }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = f;
+
+      const start = now + t;
+      gain.gain.setValueAtTime(0.12, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + d);
+
+      osc.start(start);
+      osc.stop(start + d + 0.05);
+    });
+  } catch (e) {
+    console.warn('sound failed:', e);
+  }
+}
+
+function startWinSoundLoop() {
+  stopWinSound();
+  playWinSoundOnce();
+  winSoundTimer = setInterval(() => {
+    playWinSoundOnce();
+  }, 1000);
+}
+
+function stopWinSound() {
+  if (winSoundTimer) {
+    clearInterval(winSoundTimer);
+    winSoundTimer = null;
+  }
+  if (winSoundCtx) {
+    try { winSoundCtx.close(); } catch (e) {}
+    winSoundCtx = null;
+  }
+}
+
+/* =========================================================================
+   Финализация
+   ========================================================================= */
+function finishWin(hit) {
+  const addr = $('addr').value.trim();
+  const lucky = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+  const slots = SLOT_IDS.map(id => $(id));
+
+  slots.forEach((slot, i) => {
+    setTimeout(() => {
+      stopSlot(i);
+      slot.textContent = lucky;
+      slot.className = 'slot win';
+      if (i === slots.length - 1) stopEmojiSpin();
+    }, i * 70);
+  });
+
+  startWinSoundLoop();
+
+  foundKeys.push({ key: hit.key, addr: addr });
+  renderFoundKeys();
+  setResultLines([
+    '💎💎💎 <b>НАЙДЕНО!</b>',
+    '<span class="label">Приватный ключ:</span> <span class="key">0x' + hit.key + '</span>',
+    '<span class="label">Адрес:</span> <span class="addr">' + addr + '</span>'
+  ], 'win');
+}
+
+function finishNotfound() {
+  stopWinSound();
+
+  stopped = true;
+  spinning = false;
+
+  killWorkers();
+  setButtonState('idle');
+  setInputsDisabled(false);
+
+  showStopped();
+  setResultLines([
+    '🏁 <b>Все блоки пройдены.</b>',
+    '<span class="label">Проверено ключей:</span> ' + Number(globalCount).toLocaleString('en-US'),
+    '<span class="label">Ключ в этом диапазоне не найден.</span>'
+  ], 'stopped');
+}
+
+function handleWorkerMessage(e, workerIdx) {
+  if (stopped) return;
+  const d = e.data;
+
+  if (d.type === 'STAT') {
+    lastCounts.set(workerIdx, (lastCounts.get(workerIdx) || 0n) + BigInt(d.count));
+    recalcGlobal();
+  } else if (d.type === 'blockDone') {
+    blocksDone += 1n;
+  } else if (d.type === 'needBlock') {
+    const block = getNextBlock();
+    const w = workers[workerIdx];
+    if (!w) return;
+
+    if (block) {
+      updateCurrentBlock(block[0], block[1], workerIdx);
+      w.postMessage({
+        cmd: 'block',
+        start: block[0].toString(16),
+        end: block[1].toString(16)
+      });
+    } else {
+      w.postMessage({ cmd: 'noMoreBlocks' });
+    }
+  } else if (d.type === 'workerDone') {
+    workerDoneSet.add(workerIdx);
+    if (workerDoneSet.size >= workerCountGlobal && !stopped) {
+      finishNotfound();
+    }
+  } else if (d.type === 'HIT') {
+    // Сначала останавливаем поиск
+    stopped = true;
+    spinning = false;
+    killWorkers();
+    setButtonState('idle');
+    setInputsDisabled(false);
+
+    // Потом анимация выигрыша
+    finishWin(d);
+  }
+}
+
+function onButtonClick() {
+  if (spinning) stopSearch();
+  else startSearch();
+}
+
+/* =========================================================================
+   Старт
+   ========================================================================= */
+window.addEventListener('DOMContentLoaded', function () {
+  $('spin').addEventListener('click', onButtonClick);
+
+  ['addr','start','end','blockSize'].forEach(id => {
+    $(id).addEventListener('input', validateInputs);
+    $(id).addEventListener('change', validateInputs);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (spinning) stopSearch();
+    } else if (e.key === 'Enter') {
+      const tag = (e.target.tagName || '').toUpperCase();
+      if (tag !== 'INPUT') onButtonClick();
+    }
+  });
+
+  // Спойлер деталей цели
+  $('h160Info').classList.add('collapsed');
+  $('h160Toggle').classList.remove('open');
+  $('h160Toggle').textContent = 'Показать детали цели';
+
+const toggle = $('h160Toggle');
+const info   = $('h160Info');
+const extra  = $('h160Extra');
+
+toggle.addEventListener('click', () => {
+  const isClosed = info.classList.contains('collapsed');
+  if (isClosed) {
+    info.classList.remove('collapsed');
+    extra.classList.remove('collapsed');
+    toggle.classList.add('open');
+    toggle.textContent = 'Скрыть детали цели';
+  } else {
+    info.classList.add('collapsed');
+    extra.classList.add('collapsed');
+    toggle.classList.remove('open');
+    toggle.textContent = 'Показать детали цели';
+  }
+});
+
+  validateInputs();
+
+  // Проверка RIPEMD-160
+  try {
+    const h = ripemd160(new Uint8Array(0));
+    const hex = [...h].map(b => b.toString(16).padStart(2, '0')).join('');
+    if (hex === '9c1185a5c5e9fc54612808977ee8f548b2258d31') {
+      console.log('✅ RIPEMD-160 OK');
+    } else {
+      console.error('❌ RIPEMD-160 FAILED:', hex);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+});
+</script>
+
+</body>
+</html>
