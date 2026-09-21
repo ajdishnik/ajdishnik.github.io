@@ -434,6 +434,79 @@
     border-color: #ff5c5c;
     color: #ff5c5c;
   }
+  
+  
+  
+  
+.current-block {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #0a0a10;
+  border: 1px solid #2a2a36;
+  border-radius: 10px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  text-align: left;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+  
+.cb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 75px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cb-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #0f0f15;
+  border: 1px solid #1a1a22;
+  transition: background 0.25s, border-color 0.25s;
+}
+
+.cb-row.fresh {
+  background: #1a1a10;
+  border-color: #ffd54a;
+}
+
+.cb-row .cb-w {
+  color: #555;
+  font-size: 10px;
+  min-width: 26px;
+}
+
+.cb-row .cb-from,
+.cb-row .cb-to {
+  color: #7ab8ff;
+  font-size: 10px;
+  word-break: break-all;
+}
+
+.cb-row .cb-arrow {
+  color: #555;
+  font-size: 11px;
+}
+
+.cb-row .cb-len {
+  color: #555;
+  font-size: 10px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.cb-empty {
+  color: #555;
+  font-size: 11px;
+}
+  
+  
+  
 </style>
 </head>
 
@@ -463,9 +536,24 @@
         Меньше = больше «прыжков», но чуть медленнее. 10 000 — оптимально.
       </div>
     </div>
+	
+	
 
-    <button type="button" class="h160-toggle" id="h160Toggle">Показать детали цели</button>
-    <div class="h160-info collapsed" id="h160Info">—</div>
+<button type="button" class="h160-toggle" id="h160Toggle">Показать детали цели</button>
+
+<div class="h160-info collapsed" id="h160Info">—</div>
+
+<div class="h160-info collapsed" id="h160Extra">
+  <div class="field" style="margin-top:8px">
+    <label>Потоков (воркеров):</label>
+    <input id="threads" value="1" placeholder="1">
+    <div style="font-size:10px;color:#555;margin-top:4px">
+      1 — минимум нагрева. Не ставьте больше числа ядер телефона.
+    </div>
+  </div>
+</div>
+
+
   </div>
 
   <div class="slots">
@@ -487,18 +575,14 @@
     <div class="fk-list" id="fkList"></div>
   </div>
 
-  <div class="current-block" id="currentBlock">
-    <div class="cb-label">🔍 Последний выданный блок</div>
-    <div class="cb-range">
-      <span class="cb-from" id="cbFrom">—</span>
-      <span class="cb-arrow">→</span>
-      <span class="cb-to" id="cbTo">—</span>
-    </div>
-    <div class="cb-meta">
-      <span>воркер: <b id="cbWorker">—</b></span>
-      <span>длина: <b id="cbLen">—</b></span>
-    </div>
+
+<div class="current-block" id="currentBlock">
+  <div class="cb-label">🔍 Последние выданные блоки</div>
+  <div class="cb-list" id="cbList">
+    <div class="cb-empty">—</div>
   </div>
+</div>
+
 
   <div class="progress-wrap">
     <div class="progress-bar" id="progress"></div>
@@ -932,7 +1016,7 @@ function setButtonState(mode) {
 }
 
 function setInputsDisabled(disabled) {
-  ['addr','start','end','blockSize'].forEach(id => { $(id).disabled = disabled; });
+  ['addr','start','end','blockSize','threads'].forEach(id => { $(id).disabled = disabled; });
 }
 
 function setH160Info(text, statusClass) {
@@ -1038,23 +1122,16 @@ function showStopped() {
   const slots = ['slot1','slot2','slot3'].map(id => $(id));
   const [a, b, c] = pickThreeDistinctEmojis();
 
-  stopSlot(0);
+  stopEmojiSpin();
+
   slots[0].textContent = a;
   slots[0].className = 'slot stop';
 
-  setTimeout(() => {
-    stopSlot(1);
-    slots[1].textContent = b;
-    slots[1].className = 'slot stop';
-  }, 400);
+  slots[1].textContent = b;
+  slots[1].className = 'slot stop';
 
-  setTimeout(() => {
-    stopSlot(2);
-    slots[2].textContent = c;
-    slots[2].className = 'slot stop';
-    // после последней остановки гарантированно чистим все таймеры
-    stopEmojiSpin();
-  }, 800);
+  slots[2].textContent = c;
+  slots[2].className = 'slot stop';
 }
 
 function formatETA(seconds) {
@@ -1071,30 +1148,48 @@ function recalcGlobal() {
   for (const v of lastCounts.values()) globalCount += v;
 }
 
-function updateCurrentBlock(bStart, bEnd, workerId) {
-  const fromHex = bStart.toString(16);
-  const toHex = bEnd.toString(16);
-  $('cbFrom').textContent = '0x' + shortHex(fromHex, 20);
-  $('cbFrom').title = '0x' + fromHex;
-  $('cbTo').textContent = '0x' + shortHex(toHex, 20);
-  $('cbTo').title = '0x' + toHex;
-  $('cbWorker').textContent = '#' + workerId;
-  const len = bEnd - bStart + 1n;
-  $('cbLen').textContent = len.toString() + ' ключей';
+const CB_MAX = 10;
+let cbHistory = [];
 
-  const el = $('currentBlock');
-  el.classList.add('active');
-  clearTimeout(el._activeT);
-  el._activeT = setTimeout(() => el.classList.remove('active'), 400);
+function renderCurrentBlockList() {
+  const list = $('cbList');
+  if (cbHistory.length === 0) {
+    list.innerHTML = '<div class="cb-empty">—</div>';
+    return;
+  }
+  list.innerHTML = cbHistory.map((b, i) =>
+    '<div class="cb-row' + (i === 0 ? ' fresh' : '') + '">' +
+      '<span class="cb-w">#' + b.worker + '</span>' +
+      '<span class="cb-from" title="0x' + b.fromFull + '">0x' + shortHex(b.fromFull, 14) + '</span>' +
+      '<span class="cb-arrow">→</span>' +
+      '<span class="cb-to" title="0x' + b.toFull + '">0x' + shortHex(b.toFull, 14) + '</span>' +
+      '<span class="cb-len">' + b.len + '</span>' +
+    '</div>'
+  ).join('');
+}
+
+function updateCurrentBlock(bStart, bEnd, workerId) {
+  const fromFull = bStart.toString(16);
+  const toFull = bEnd.toString(16);
+  const len = (bEnd - bStart + 1n).toString();
+
+  cbHistory.unshift({
+    fromFull,
+    toFull,
+    worker: workerId,
+    len
+  });
+  if (cbHistory.length > CB_MAX) cbHistory.length = CB_MAX;
+
+  renderCurrentBlockList();
 }
 
 function resetCurrentBlock() {
-  $('cbFrom').textContent = '—';
-  $('cbTo').textContent = '—';
-  $('cbWorker').textContent = '—';
-  $('cbLen').textContent = '—';
-  $('currentBlock').classList.remove('active');
+  cbHistory = [];
+  renderCurrentBlockList();
 }
+
+
 
 function startRateTimer() {
   if (rateTimer) clearInterval(rateTimer);
@@ -1163,7 +1258,7 @@ function startSearch() {
 
   spinning = true;
   stopped = false;
-
+  resetCurrentBlock();
   blocksDone = 0n;
   workerDoneSet.clear();
 
@@ -1179,7 +1274,6 @@ function startSearch() {
     '<span class="label">Порядок блоков:</span> псевдослучайный (O(1) память)'
   ], 'searching');
 
-  resetCurrentBlock();
 
   globalCount = 0n;
   rangeSizeGlobal = params.rangeSize;
@@ -1200,8 +1294,13 @@ function startSearch() {
     permB = 0n;
   }
 
-  const nw = 2;
-  workerCountGlobal = nw;
+let nw = 1;
+try {
+  nw = parseInt($('threads').value, 10);
+  if (!Number.isFinite(nw) || nw < 1) nw = 1;
+  if (nw > 32) nw = 32;   // защита от безумия
+} catch (e) { nw = 1; }
+workerCountGlobal = nw;
 
   const blob = new Blob([buildWorkerCode()], { type: 'application/javascript' });
   const url = URL.createObjectURL(blob);
@@ -1308,6 +1407,7 @@ function finishWin(hit) {
   const lucky = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
   const slots = ['slot1','slot2','slot3'].map(id => $(id));
 
+  // Слоты останавливаются с задержкой — это чисто визуальный эффект
   stopSlot(0);
   slots[0].textContent = lucky;
   slots[0].className = 'slot win';
@@ -1316,29 +1416,26 @@ function finishWin(hit) {
     stopSlot(1);
     slots[1].textContent = lucky;
     slots[1].className = 'slot win';
-  }, 500);
+  }, 150);
 
   setTimeout(() => {
     stopSlot(2);
     slots[2].textContent = lucky;
     slots[2].className = 'slot win';
-    stopEmojiSpin();     // финальная зачистка таймеров
-  }, 1000);
+    stopEmojiSpin();
+  }, 300);
 
-  setTimeout(() => {
-    startWinSoundLoop();
-    setResultLines(['🎯 Есть совпадение!'], 'searching');
-  }, 1400);
+  // Звук — сразу, без «Есть совпадение»
+  startWinSoundLoop();
 
-  setTimeout(() => {
-    foundKeys.push({ key: hit.key, addr: addr });
-    renderFoundKeys();
-    setResultLines([
-      '💎💎💎 <b>НАЙДЕНО!</b>',
-      '<span class="label">Приватный ключ:</span> <span class="key">0x' + hit.key + '</span>',
-      '<span class="label">Адрес:</span> <span class="addr">' + addr + '</span>'
-    ], 'win');
-  }, 2400);
+  // Ключ выводим сразу
+  foundKeys.push({ key: hit.key, addr: addr });
+  renderFoundKeys();
+  setResultLines([
+    '💎💎💎 <b>НАЙДЕНО!</b>',
+    '<span class="label">Приватный ключ:</span> <span class="key">0x' + hit.key + '</span>',
+    '<span class="label">Адрес:</span> <span class="addr">' + addr + '</span>'
+  ], 'win');
 }
 
 function finishNotfound() {
@@ -1431,21 +1528,24 @@ window.addEventListener('DOMContentLoaded', function () {
   $('h160Toggle').classList.remove('open');
   $('h160Toggle').textContent = 'Показать детали цели';
 
-  const toggle = $('h160Toggle');
-  const info = $('h160Info');
+const toggle = $('h160Toggle');
+const info   = $('h160Info');
+const extra  = $('h160Extra');
 
-  toggle.addEventListener('click', () => {
-    const isClosed = info.classList.contains('collapsed');
-    if (isClosed) {
-      info.classList.remove('collapsed');
-      toggle.classList.add('open');
-      toggle.textContent = 'Скрыть детали цели';
-    } else {
-      info.classList.add('collapsed');
-      toggle.classList.remove('open');
-      toggle.textContent = 'Показать детали цели';
-    }
-  });
+toggle.addEventListener('click', () => {
+  const isClosed = info.classList.contains('collapsed');
+  if (isClosed) {
+    info.classList.remove('collapsed');
+    extra.classList.remove('collapsed');
+    toggle.classList.add('open');
+    toggle.textContent = 'Скрыть детали цели';
+  } else {
+    info.classList.add('collapsed');
+    extra.classList.add('collapsed');
+    toggle.classList.remove('open');
+    toggle.textContent = 'Показать детали цели';
+  }
+});
 
   validateInputs();
 
