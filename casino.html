@@ -114,18 +114,23 @@
   }
 
   .h160-toggle:hover {
-    border-color: #ffd54a;
-    color: #ffd54a;
-  }
+  border-color: #7ab8ff;
+  color: #7ab8ff;
+}
 
-  .h160-toggle::before {
-    content: '▸ ';
-    color: #ffd54a;
-  }
+.h160-toggle.open {
+  color: #7ab8ff;
+  border-color: #7ab8ff;
+}
 
-  .h160-toggle.open::before {
-    content: '▾ ';
-  }
+.h160-toggle::before {
+  content: '▸ ';
+  color: inherit;              /* стрелка того же цвета, что и текст */
+}
+
+.h160-toggle.open::before {
+  content: '▾ ';
+}
 
   .h160-info.ok  { color: #54e878; }
   .h160-info.err { color: #ff5c5c; }
@@ -440,14 +445,14 @@
   <div class="panel">
     <div class="field">
       <label>Целевой BTC-адрес:</label>
-      <input id="addr" value="19YZECXj3SxEZMoUeJ1yiPsw8xANe7M7QR" placeholder="1...">
+      <input id="addr" value="1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU" placeholder="1...">
     </div>
 
     <div class="field">
       <label>Диапазон ключей (hex, без 0x):</label>
       <div class="row-inline">
-        <div><input id="start" value="349b84b6431a6c4ef1" placeholder="от"></div>
-        <div><input id="end" value="349b84b6431a6fffff" placeholder="до"></div>
+        <div><input id="start" value="400000000000000000" placeholder="от"></div>
+        <div><input id="end" value="7fffffffffffffffff" placeholder="до"></div>
       </div>
     </div>
 
