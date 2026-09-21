@@ -1346,38 +1346,51 @@ function stopSearch() {
 /* =========================================================================
    Звук
    ========================================================================= */
-function playWinSoundOnce() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    winSoundCtx = ctx;
-    const now = ctx.currentTime;
-
-    const notes = [
-      { f: 523.25, t: 0.0,  d: 0.08 },
-      { f: 523.25, t: 0.10, d: 0.08 },
-      { f: 659.25, t: 0.20, d: 0.08 },
-      { f: 783.99, t: 0.30, d: 0.08 },
-      { f: 1046.50, t: 0.40, d: 0.30 },
-    ];
-
-    notes.forEach(({ f, t, d }) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'square';
-      osc.frequency.value = f;
-
-      const start = now + t;
-      gain.gain.setValueAtTime(0.12, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + d);
-
-      osc.start(start);
-      osc.stop(start + d + 0.05);
-    });
-  } catch (e) {
-    console.warn('sound failed:', e);
+function ensureAudioCtx() {
+  if (!winSoundCtx) {
+    try {
+      winSoundCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      console.warn('AudioContext failed:', e);
+      return null;
+    }
   }
+  if (winSoundCtx.state === 'suspended') {
+    winSoundCtx.resume().catch(() => {});
+  }
+  return winSoundCtx;
+}
+
+function playWinSoundOnce() {
+  const ctx = ensureAudioCtx();
+  if (!ctx) return;
+
+  // На iOS resume() асинхронный — дадим ему микротаск завершиться
+  const now = ctx.currentTime;
+
+  const notes = [
+    { f: 523.25, t: 0.0,  d: 0.08 },
+    { f: 523.25, t: 0.10, d: 0.08 },
+    { f: 659.25, t: 0.20, d: 0.08 },
+    { f: 783.99, t: 0.30, d: 0.08 },
+    { f: 1046.50, t: 0.40, d: 0.30 },
+  ];
+
+  notes.forEach(({ f, t, d }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.value = f;
+
+    const start = now + t;
+    gain.gain.setValueAtTime(0.12, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + d);
+
+    osc.start(start);
+    osc.stop(start + d + 0.05);
+  });
 }
 
 function startWinSoundLoop() {
@@ -1393,10 +1406,8 @@ function stopWinSound() {
     clearInterval(winSoundTimer);
     winSoundTimer = null;
   }
-  if (winSoundCtx) {
-    try { winSoundCtx.close(); } catch (e) {}
-    winSoundCtx = null;
-  }
+  // НЕ закрываем AudioContext — на iOS это ломает повторное воспроизведение
+  // Просто оставляем его жить до следующего раза
 }
 
 /* =========================================================================
@@ -1499,6 +1510,7 @@ function handleWorkerMessage(e, workerIdx) {
 }
 
 function onButtonClick() {
+  ensureAudioCtx();   // ← будим AudioContext на пользовательском тапе
   if (spinning) stopSearch();
   else startSearch();
 }
