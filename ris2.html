@@ -1,0 +1,2809 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✏️ Bitcoin Сканер — прыжковый + плотный проход</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at top, #1a1a2e, #0d0d12);
+    color: white;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    padding: 16px;
+  }
+
+  .app {
+    width: 720px;
+    padding: 22px;
+    background: linear-gradient(180deg, #1e1e2a, #16161d);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,213,74,0.1);
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    color: #ffd54a;
+    font-size: 24px;
+    text-shadow: 0 0 20px rgba(255,213,74,0.4);
+    text-align: center;
+  }
+
+  .subtitle {
+    color: #8b949e;
+    font-size: 12px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .panel {
+    background: #0f0f15;
+    border: 1px solid #2a2a36;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 14px;
+    text-align: left;
+    font-size: 12px;
+  }
+
+  .panel .field { margin-bottom: 10px; }
+  .panel .field:last-child { margin-bottom: 0; }
+
+  .panel label {
+    display: block;
+    margin-bottom: 4px;
+    color: #8b949e;
+    font-size: 11px;
+  }
+
+  input, select {
+    width: 100%;
+    padding: 9px;
+    border: 1px solid #33333f;
+    border-radius: 8px;
+    background: #1a1a22;
+    color: white;
+    font-size: 12px;
+    outline: none;
+    font-family: Consolas, monospace;
+  }
+
+  input:focus, select:focus { border-color: #ffd54a; }
+  input:read-only { opacity: 0.7; cursor: not-allowed; }
+  select { cursor: pointer; }
+
+  .row-inline { display: flex; gap: 8px; }
+  .row-inline > div { flex: 1; }
+
+  .row-with-btn {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .row-with-btn input { flex: 1; }
+  .row-with-btn .mini-btn {
+    flex: 0 0 auto;
+    min-width: 90px;
+    padding: 0 12px;
+    background: linear-gradient(135deg, #c8a0ff, #8ab4ff);
+    color: #1a0a2a;
+    border: 0;
+    border-radius: 8px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .row-with-btn .mini-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d8b8ff, #a8c8ff);
+    transform: translateY(-1px);
+  }
+  .row-with-btn .mini-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .row-with-btn .mini-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .h160-info {
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    color: #555;
+    margin-top: 8px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+  .h160-info.ok  { color: #54e878; }
+  .h160-info.err { color: #ff5c5c; }
+  .h160-info.warn { color: #ffb84a; }
+
+  .paint-wrap {
+    position: relative;
+    margin: 14px 0;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #2a2a36;
+    background: #080810;
+    box-shadow: inset 0 0 60px rgba(255,213,74,0.03);
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+
+  .paint-wrap.drawing {
+    border-color: #ffd54a;
+    box-shadow: 0 0 30px rgba(255,213,74,0.3), inset 0 0 60px rgba(255,213,74,0.06);
+  }
+
+  .paint-wrap.auto {
+    border-color: #c8a0ff;
+    box-shadow: 0 0 30px rgba(200,160,255,0.4), inset 0 0 60px rgba(200,160,255,0.08);
+  }
+
+  #paint {
+    display: block;
+    width: 100%;
+    height: 360px;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  .paint-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    font-size: 13px;
+    color: #555;
+    font-family: Consolas, monospace;
+    text-align: center;
+    padding: 24px;
+    transition: opacity 0.3s;
+    line-height: 1.7;
+  }
+
+  .paint-overlay.hidden { opacity: 0; }
+
+  .hud {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    background: rgba(5, 5, 12, 0.9);
+    border: 1px solid #1e2a3a;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    text-align: left;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    line-height: 1.6;
+    max-width: 380px;
+    display: none;
+  }
+
+  .hud.visible { display: block; }
+  .hud.auto-mode { border-color: #c8a0ff; }
+
+  .hud-row { color: #7ab8ff; word-break: break-all; }
+  .hud-row b { color: #ffd54a; font-weight: normal; }
+  .hud-row.xy b { color: #54e878; }
+  .hud-row.center b { color: #ff8ad4; }
+  .hud-row.auto b { color: #c8a0ff; }
+
+  .auto-cursor {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #c8a0ff;
+    background: rgba(200,160,255,0.15);
+    box-shadow: 0 0 20px rgba(200,160,255,0.8);
+    pointer-events: none;
+    display: none;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+  }
+  .auto-cursor.visible { display: block; }
+  .auto-cursor::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 4px; height: 4px;
+    background: #c8a0ff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .scan-frame {
+    position: absolute;
+    border: 1px dashed rgba(255,138,212,0.7);
+    border-radius: 50%;
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 0 20px rgba(255,138,212,0.35);
+    z-index: 4;
+  }
+  .scan-frame.visible { display: block; }
+
+  .keystream {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #05050c;
+    border: 1px solid #1a2a3a;
+    border-radius: 12px;
+    text-align: left;
+  }
+
+  .ks-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    color: #7ab8ff;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .ks-title .ks-count { color: #555; text-transform: none; }
+
+  .ks-list {
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.6;
+    max-height: 190px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .ks-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    animation: ksIn 0.2s ease-out;
+  }
+
+  .ks-row:nth-child(even) { background: #0a0a14; }
+
+  .ks-row .ks-key {
+    color: #ffd54a;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ks-row .ks-addr { color: #7ab8ff; word-break: break-all; }
+
+  .ks-row.hit {
+    background: #0a2a14;
+    border: 1px solid #54e878;
+  }
+  .ks-row.hit .ks-addr { color: #8fffb8; font-weight: bold; }
+
+  .ks-empty {
+    color: #444;
+    font-size: 11px;
+    text-align: center;
+    padding: 10px;
+  }
+
+  @keyframes ksIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 6px 12px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #0f0f15;
+    border-radius: 10px;
+    font-size: 10px;
+    color: #777;
+    font-family: Consolas, monospace;
+  }
+
+  .stats b { color: #58a6ff; }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    flex: 1;
+    min-width: 110px;
+    padding: 12px;
+    border: 0;
+    border-radius: 10px;
+    background: #ffd54a;
+    color: #171717;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.4px;
+  }
+
+  button:hover:not(:disabled) { background: #ffe477; transform: translateY(-1px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  button.secondary {
+    background: #2a2a36;
+    color: #8b949e;
+    font-size: 12px;
+  }
+  button.secondary:hover:not(:disabled) {
+    background: #33333f;
+    color: #fff;
+  }
+
+  button.auto-btn {
+    background: linear-gradient(135deg, #c8a0ff, #8ab4ff);
+    color: #1a0a2a;
+  }
+  button.auto-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d8b8ff, #a8c8ff);
+    transform: translateY(-1px);
+  }
+  button.auto-btn.active {
+    background: linear-gradient(135deg, #ff5c5c, #ff8ad4);
+    color: #fff;
+  }
+  button.auto-btn.active:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff7777, #ff9ee0);
+  }
+
+  .found-window {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(180deg, #0f1a13, #0a1410);
+    border: 1px solid #1e4a2a;
+    border-radius: 12px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    text-align: left;
+    display: none;
+    box-shadow: 0 0 30px rgba(84,232,120,0.2);
+  }
+
+  .found-window.visible { display: block; animation: foundIn 0.5s ease-out; }
+
+  @keyframes foundIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .fw-title {
+    color: #54e878;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    text-align: center;
+    text-shadow: 0 0 12px rgba(84,232,120,0.5);
+  }
+
+  .fw-block {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: #0a1a0f;
+    border: 1px solid #1e3a26;
+    border-radius: 8px;
+  }
+
+  .fw-label {
+    color: #54e878;
+    font-size: 9px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .fw-value {
+    color: #c8ffd8;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .fw-value.key  { color: #8fffb8; font-weight: bold; }
+  .fw-value.addr { color: #a8e0ff; }
+
+  .fw-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+  .fw-btn {
+    flex: 1;
+    padding: 7px 10px;
+    background: #14141c;
+    border: 1px solid #2a2a36;
+    border-radius: 6px;
+    color: #8b949e;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .fw-btn:hover { border-color: #54e878; color: #54e878; }
+  .fw-btn.close:hover { border-color: #ff5c5c; color: #ff5c5c; }
+
+  .hint {
+    margin-top: 8px;
+    font-size: 10px;
+    color: #555;
+    text-align: center;
+  }
+  .hint kbd {
+    background: #2a2a36;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: Consolas, monospace;
+    color: #aaa;
+  }
+
+  .range-progress {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #0a0a14;
+    border: 1px solid #1a1a28;
+    border-radius: 10px;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    color: #777;
+  }
+  .range-progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .range-progress-label b { color: #54e878; }
+  .range-progress-pos { color: #555; font-size: 9px; }
+  .range-progress-bar {
+    height: 6px;
+    background: #050510;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #1a1a28;
+  }
+  .range-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #54e878, #7affb8);
+    transition: width 0.15s linear;
+  }
+
+  .autostep-info {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: #0a0a14;
+    border: 1px solid #1a1a28;
+    border-radius: 6px;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    color: #c8a0ff;
+    line-height: 1.5;
+  }
+  .autostep-info b { color: #ff8ad4; }
+
+  .kangaroo-info {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: linear-gradient(135deg, #1a0f2a, #0f0a1a);
+    border: 1px solid #4a2a6a;
+    border-radius: 8px;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    color: #c8a0ff;
+    line-height: 1.5;
+    display: none;
+  }
+  .kangaroo-info.visible { display: block; }
+  .kangaroo-info b { color: #ff8ad4; }
+  .kangaroo-info .kg-row { margin-bottom: 3px; }
+  .kangaroo-info .kg-row:last-child { margin-bottom: 0; }
+</style>
+</head>
+
+<body>
+
+<div class="app">
+  <h1>✏️ Bitcoin Сканер</h1>
+  <div class="subtitle">Плотный проход ИЛИ прыжковый — выбор за тобой.</div>
+
+  <div class="panel">
+    <div class="field">
+      <label>Целевой BTC-адрес:</label>
+      <input id="addr" value="1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU" placeholder="1...">
+    </div>
+
+    <div class="field">
+      <label>Глобальный диапазон ключей (hex, без 0x):</label>
+      <div class="row-inline">
+        <div><input id="start" value="400000000000000000" placeholder="от"></div>
+        <div><input id="end" value="7fffffffffffffffff" placeholder="до"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Размер окна сканера (ключей вокруг курсора):</label>
+      <input id="windowSize" value="1000" placeholder="1000">
+    </div>
+
+    <div class="field">
+      <label>Шаг ручного курсора (ключей на 1 px):</label>
+      <input id="sensX" value="50" placeholder="50">
+    </div>
+
+    <div class="field">
+      <label>Потоков (воркеров):</label>
+      <input id="threads" value="2" placeholder="2">
+    </div>
+
+    <div class="h160-info" id="h160Info">—</div>
+  </div>
+
+  <div class="panel">
+    <div class="field">
+      <label>Режим авторисовки (визуал):</label>
+      <select id="autoMode">
+        <option value="chaos">🎲 Chaos — случайные штрихи</option>
+        <option value="lissajous">∞ Лиссажу — восьмёрка</option>
+        <option value="spiral">🌀 Спираль — от центра</option>
+        <option value="zigzag">⚡ Зигзаг — наклонные строки</option>
+        <option value="horizontal" selected>→ Горизонталь — змейка</option>
+        <option value="vertical">↑ Вертикаль — змейка</option>
+        <option value="wave">🌊 Волна — синусоида</option>
+        <option value="tornado">🌪️ Вихрь — расширение</option>
+        <option value="rose">💠 Роза — полярная</option>
+        <option value="diamond">🔷 Ромб — периметр</option>
+        <option value="target">🎯 Мишень — кольца</option>
+        <option value="butterfly">🦋 Бабочка — кривая</option>
+        <option value="gear">⚙️ Шестерёнка — зубцы</option>
+        <option value="dna">🧬 ДНК — двойная спираль</option>
+        <option value="sawtooth">📐 Пила — наклон + срыв</option>
+        <option value="hypno">🌀 Гипно — дрейф-круг</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Время авторисовки (сек, 0 = без лимита):</label>
+      <input id="autoDuration" value="30" placeholder="30">
+    </div>
+
+    <div class="field">
+      <label>Стратегия прохода диапазона:</label>
+      <select id="strategy">
+        <option value="dense">📏 Плотный — идёт подряд, охватывает всё</option>
+        <option value="jump" selected>🦘 Прыжковый — старшие цифры меняются</option>
+        <option value="kangaroo">🦘 Кенгуру — задаётся вручную в hex</option>
+        <option value="random">🎲 Случайный — прыжок в случайную точку</option>
+        <option value="block">📐 Блочная — блоки со случайным смещением</option>
+        <option value="shuffle">🔀 Шаффл-сектор — перемешанные сектора</option>
+        <option value="ascend">⬆️ Вверх — детерминированный подъём</option>
+        <option value="bitflip">🌲 Битовая инверсия — Van der Corput</option>
+        <option value="diagonal">🧭 Диагональ — золотое сечение</option>
+      </select>
+      <div style="font-size:10px;color:#555;margin-top:4px" id="strategyHint">
+        <b>Плотный</b>: медленно, но каждый ключ проверяется (для маленьких диапазонов).<br>
+        <b>Прыжковый</b>: покрывает весь диапазон равномерно, но с пропусками.<br>
+        <b>Случайный</b>: каждая точка — случайна в диапазоне.
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Шаг авторисовки (ключей за кадр):</label>
+      <input id="autoStep" value="500" placeholder="500" readonly>
+      <div class="autostep-info" id="autoStepInfo">Автошаг: будет рассчитан после старта.</div>
+    </div>
+
+<div class="field" id="kangarooField" style="display:none">
+  <label>🦘 Кенгуру — шаг прыжка в hex (фиксированный, не зависит от времени):</label>
+  <div class="row-with-btn">
+    <input id="kangarooStep" value="1000000" placeholder="например 1000000">
+    <button type="button" class="mini-btn" id="kangarooRandomBtn" title="Случайный шаг из диапазона">🎲 Random</button>
+  </div>
+
+  <div style="margin-top:8px;font-size:11px;color:#8b949e">
+    <label style="margin-bottom:4px">Рандом: шаг не больше чем 1/N от диапазона (чем больше N — тем «плотнее» прыжки)</label>
+    <div class="row-with-btn">
+      <input id="kangarooDivisor" value="1000" placeholder="1000" style="flex:1">
+      <button type="button" class="mini-btn" id="kangarooApplyBtn" title="Применить">✓ OK</button>
+    </div>
+  </div>
+
+  <div class="kangaroo-info visible" id="kangarooInfo">
+    <div class="kg-row">Шаг: <b id="kgStep">—</b></div>
+    <div class="kg-row">Прыжков за секунду: <b id="kgPerSec">—</b></div>
+    <div class="kg-row">Диапазон покрыт за: <b id="kgCover">—</b></div>
+  </div>
+</div>
+
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="useProgress" checked style="width:auto;margin:0;accent-color:#54e878">
+        Продолжать с места остановки (сохраняет прогресс между запусками)
+      </label>
+    </div>
+
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="randomStart" checked style="width:auto;margin:0;accent-color:#c8a0ff">
+        🎲 Случайный старт при выключенном прогрессе (иначе — с начала диапазона)
+      </label>
+    </div>
+
+    <div class="h160-info" id="autoInfo" style="color:#c8a0ff">
+      Авторисовка: рука водит карандаш, воркеры ищут ключи.
+    </div>
+  </div>
+
+  <div class="paint-wrap" id="paintWrap">
+    <canvas id="paint"></canvas>
+    <div class="scan-frame" id="scanFrame"></div>
+    <div class="auto-cursor" id="autoCursor"></div>
+    <div class="paint-overlay" id="paintOverlay">
+      Зажми карандаш и веди по холсту,<br>
+      либо включи авторисовку
+    </div>
+    <div class="hud" id="hud">
+      <div class="hud-row xy">dx: <b id="hudDx">0</b> / dy: <b id="hudDy">0</b></div>
+      <div class="hud-row center">центр: <b id="hudCenter">—</b></div>
+      <div class="hud-row">окно: <b id="hudWindow">—</b></div>
+      <div class="hud-row auto" id="hudAutoRow" style="display:none">
+        авто: <b id="hudAuto">—</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="range-progress">
+    <div class="range-progress-label">
+      <span>📍 Прогресс диапазона: <b id="progressPct">0.0000%</b></span>
+      <span class="range-progress-pos" id="progressPos">0x…</span>
+    </div>
+    <div class="range-progress-bar">
+      <div class="range-progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="autoBtn" class="auto-btn">▶ АВТОРИСОВКА</button>
+    <button id="resetProgressBtn" class="secondary">⟲ Сброс</button>
+    <button id="clearBtn" class="secondary">🧹 Очистить</button>
+  </div>
+
+  <div class="keystream">
+    <div class="ks-title">
+      <span>⚡ Последние проверенные ключи</span>
+      <span class="ks-count" id="ksCount">0</span>
+    </div>
+    <div class="ks-list" id="ksList">
+      <div class="ks-empty">Начни рисовать или включи авторисовку</div>
+    </div>
+  </div>
+
+  <div class="found-window" id="foundWindow">
+    <div class="fw-title">💎 Найден целевой адрес</div>
+    <div class="fw-block">
+      <div class="fw-label">Приватный ключ (hex)</div>
+      <div class="fw-value key" id="fwKey">—</div>
+    </div>
+    <div class="fw-block">
+      <div class="fw-label">Адрес</div>
+      <div class="fw-value addr" id="fwAddr">—</div>
+    </div>
+    <div class="fw-actions">
+      <button class="fw-btn" id="fwCopy">📋 Копировать ключ</button>
+      <button class="fw-btn" id="fwMute">🔇 Стоп звук</button>
+      <button class="fw-btn close" id="fwClose">✕ Закрыть</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div>Скорость: <b id="rate">0</b> k/s</div>
+    <div>Всего: <b id="count">0</b></div>
+    <div>Воркеров: <b id="workerCount">0</b></div>
+    <div>FPS: <b id="fps">0</b></div>
+  </div>
+
+  <div class="hint">
+    <kbd>Esc</kbd> — отмена штриха / стоп авторисовки
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   secp256k1 + RIPEMD-160 + base58
+   ========================================================================= */
+const P  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const N  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+
+function mod(a, m) { const r = a % m; return r >= 0n ? r : r + m; }
+function rol(x, n) { return ((x << n) | (x >>> (32 - n))) >>> 0; }
+
+function ripemd160(msg) {
+  const r1 = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
+              7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,
+              3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,
+              1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,
+              4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+  const r2 = [5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,
+              6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,
+              15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,
+              8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,
+              12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+  const s1 = [11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,
+              7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,
+              11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,
+              11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,
+              9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+  const s2 = [8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,
+              9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,
+              9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,
+              15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,
+              8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+  const K1 = [0x00000000,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E];
+  const K2 = [0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0x00000000];
+
+  function f(j, x, y, z) {
+    if (j < 16) return x ^ y ^ z;
+    if (j < 32) return (x & y) | (~x & z);
+    if (j < 48) return (x | ~y) ^ z;
+    if (j < 64) return (x & z) | (y & ~z);
+    return x ^ (y | ~z);
+  }
+  function f2(j, x, y, z) {
+    if (j < 16) return x ^ (y | ~z);
+    if (j < 32) return (x & z) | (y & ~z);
+    if (j < 48) return (x | ~y) ^ z;
+    if (j < 64) return (x & y) | (~x & z);
+    return x ^ y ^ z;
+  }
+
+  const len = msg.length;
+  const bitLen = len * 8;
+  const paddedLen = ((len + 9 + 63) & ~63);
+  const buf = new Uint8Array(paddedLen);
+  buf.set(msg);
+  buf[len] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(paddedLen - 8, bitLen >>> 0, true);
+  dv.setUint32(paddedLen - 4, Math.floor(bitLen / 0x100000000) >>> 0, true);
+
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+
+  for (let i = 0; i < paddedLen; i += 64) {
+    const X = [];
+    for (let j = 0; j < 16; j++) X.push(dv.getUint32(i + j * 4, true));
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    let A = h0, B = h1, C = h2, D = h3, E = h4;
+    for (let j = 0; j < 80; j++) {
+      const t = (rol((a + f(j, b, c, d) + X[r1[j]] + K1[(j / 16) | 0]) >>> 0, s1[j]) + e) >>> 0;
+      a = e; e = d; d = rol(c, 10); c = b; b = t;
+      const t2 = (rol((A + f2(j, B, C, D) + X[r2[j]] + K2[(j / 16) | 0]) >>> 0, s2[j]) + E) >>> 0;
+      A = E; E = D; D = rol(C, 10); C = B; B = t2;
+    }
+    const t = (h1 + c + D) >>> 0;
+    h1 = (h2 + d + E) >>> 0;
+    h2 = (h3 + e + A) >>> 0;
+    h3 = (h4 + a + B) >>> 0;
+    h4 = (h0 + b + C) >>> 0;
+    h0 = t;
+  }
+  const out = new Uint8Array(20);
+  const odv = new DataView(out.buffer);
+  odv.setUint32(0, h0, true);
+  odv.setUint32(4, h1, true);
+  odv.setUint32(8, h2, true);
+  odv.setUint32(12, h3, true);
+  odv.setUint32(16, h4, true);
+  return out;
+}
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58decode(str) {
+  let num = 0n;
+  for (const ch of str) {
+    const idx = B58.indexOf(ch);
+    if (idx < 0) throw new Error('недопустимый символ: ' + ch);
+    num = num * 58n + BigInt(idx);
+  }
+  let hex = num.toString(16);
+  if (hex.length % 2) hex = '0' + hex;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  let zeros = 0;
+  while (zeros < str.length && str[zeros] === '1') zeros++;
+  const out = new Uint8Array(zeros + bytes.length);
+  out.set(bytes, zeros);
+  return out;
+}
+
+function addressToH160Hex(addr) {
+  const raw = base58decode(addr);
+  if (raw.length !== 25) throw new Error('длина адреса != 25');
+  return [...raw.slice(1, 21)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* =========================================================================
+   Worker code
+   ========================================================================= */
+function buildWorkerCode() {
+  return [
+    "const N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;",
+    "const P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;",
+    "const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;",
+    "const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;",
+
+    "function mod(a,m){const r=a%m;return r>=0n?r:r+m;}",
+    "function modInv(a,m){let or_=mod(a,m),r=m,os_=1n,s=0n;while(r!==0n){const q=or_/r;const tr=or_-q*r;or_=r;r=tr;const ts=os_-q*s;os_=s;s=ts;}if(or_!==1n)throw new Error('no inv');return mod(os_,m);}",
+    "function pointAddAff(A,B){if(A===null)return B;if(B===null)return A;const x1=A[0],y1=A[1],x2=B[0],y2=B[1];let lam;if(x1===x2){if(mod(y1+y2,P)===0n)return null;lam=mod((3n*x1*x1)*modInv(2n*y1,P),P);}else{lam=mod((y2-y1)*modInv(mod(x2-x1,P),P),P);}const x3=mod(lam*lam-x1-x2,P);const y3=mod(lam*(x1-x3)-y1,P);return[x3,y3];}",
+    "function mulG(k){k=mod(k,N);if(k===0n)return null;let R=null,Q=[Gx,Gy];while(k>0n){if(k&1n)R=pointAddAff(R,Q);Q=pointAddAff(Q,Q);k>>=1n;}return R;}",
+
+    "function jacDouble(X1,Y1,Z1){if(Z1===0n)return[0n,0n,0n];const YY=mod(Y1*Y1,P);const S=mod(4n*X1*YY,P);const M=mod(3n*X1*X1,P);const X3=mod(M*M-2n*S,P);const Y3=mod(M*(S-X3)-8n*YY*YY,P);const Z3=mod(2n*Y1*Z1,P);return[X3,Y3,Z3];}",
+    "function jacAddAffine(X1,Y1,Z1,x2,y2){if(Z1===0n)return[x2,y2,1n];const Z1Z1=mod(Z1*Z1,P);const U2=mod(x2*Z1Z1,P);const S2=mod(y2*Z1*Z1Z1,P);const H=mod(U2-X1,P);const R=mod(S2-Y1,P);if(H===0n){if(R===0n)return jacDouble(X1,Y1,Z1);return[0n,0n,0n];}const HH=mod(H*H,P);const HHH=mod(H*HH,P);const V=mod(X1*HH,P);const X3=mod(R*R-HHH-2n*V,P);const Y3=mod(R*(V-X3)-Y1*HHH,P);const Z3=mod(Z1*H,P);return[X3,Y3,Z3];}",
+    "function batchToAffine(xs,ys,zs){const n=xs.length;const prefix=new Array(n);let acc=1n;for(let i=0;i<n;i++){prefix[i]=acc;acc=mod(acc*zs[i],P);}let inv=modInv(acc,P);const ax=new Array(n),ay=new Array(n);for(let i=n-1;i>=0;i--){const zi=mod(inv*prefix[i],P);inv=mod(inv*zs[i],P);const zi2=mod(zi*zi,P);const zi3=mod(zi2*zi,P);ax[i]=mod(xs[i]*zi2,P);ay[i]=mod(ys[i]*zi3,P);}return[ax,ay];}",
+
+    "function rol(x,n){return((x<<n)|(x>>>(32-n)))>>>0;}",
+    "function ripemd160(msg){",
+    "const r1=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];",
+    "const r2=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];",
+    "const s1=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];",
+    "const s2=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];",
+    "const K1=[0x00000000,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E];",
+    "const K2=[0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0x00000000];",
+    "function f(j,x,y,z){if(j<16)return x^y^z;if(j<32)return(x&y)|(~x&z);if(j<48)return(x|~y)^z;if(j<64)return(x&z)|(y&~z);return x^(y|~z);}",
+    "function f2(j,x,y,z){if(j<16)return x^(y|~z);if(j<32)return(x&z)|(y&~z);if(j<48)return(x|~y)^z;if(j<64)return(x&y)|(~x&z);return x^y^z;}",
+    "const len=msg.length;const bitLen=len*8;const paddedLen=((len+9+63)&~63);",
+    "const buf=new Uint8Array(paddedLen);buf.set(msg);buf[len]=0x80;",
+    "const dv=new DataView(buf.buffer);",
+    "dv.setUint32(paddedLen-8,bitLen>>>0,true);",
+    "dv.setUint32(paddedLen-4,Math.floor(bitLen/0x100000000)>>>0,true);",
+    "let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;",
+    "for(let i=0;i<paddedLen;i+=64){",
+    "const X=[];for(let j=0;j<16;j++)X.push(dv.getUint32(i+j*4,true));",
+    "let a=h0,b=h1,c=h2,d=h3,e=h4;let A=h0,B=h1,C=h2,D=h3,E=h4;",
+    "for(let j=0;j<80;j++){",
+    "const t=(rol((a+f(j,b,c,d)+X[r1[j]]+K1[(j/16)|0])>>>0,s1[j])+e)>>>0;",
+    "a=e;e=d;d=rol(c,10);c=b;b=t;",
+    "const t2=(rol((A+f2(j,B,C,D)+X[r2[j]]+K2[(j/16)|0])>>>0,s2[j])+E)>>>0;",
+    "A=E;E=D;D=rol(C,10);C=B;B=t2;}",
+    "const t=(h1+c+D)>>>0;",
+    "h1=(h2+d+E)>>>0;h2=(h3+e+A)>>>0;h3=(h4+a+B)>>>0;h4=(h0+b+C)>>>0;h0=t;}",
+    "const out=new Uint8Array(20);const odv=new DataView(out.buffer);",
+    "odv.setUint32(0,h0,true);odv.setUint32(4,h1,true);odv.setUint32(8,h2,true);",
+    "odv.setUint32(12,h3,true);odv.setUint32(16,h4,true);return out;}",
+
+    "async function sha256(b){return new Uint8Array(await crypto.subtle.digest('SHA-256',b));}",
+    "async function hash160Hex(x,y){",
+    "const pub=new Uint8Array(33);pub[0]=(y&1n)?0x03:0x02;",
+    "const xh=x.toString(16).padStart(64,'0');",
+    "for(let i=0;i<32;i++)pub[1+i]=parseInt(xh.substr(i*2,2),16);",
+    "const s1=await sha256(pub);",
+    "const h=ripemd160(s1);",
+    "let out='';for(let i=0;i<h.length;i++)out+=h[i].toString(16).padStart(2,'0');",
+    "return out;}",
+
+    "const B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';",
+    "function base58encode(bytes){",
+    "  let num=0n;",
+    "  for(const b of bytes) num=(num<<8n)|BigInt(b);",
+    "  let out='';",
+    "  while(num>0n){const r=Number(num%58n);num=num/58n;out=B58[r]+out;}",
+    "  let zeros=0;",
+    "  while(zeros<bytes.length&&bytes[zeros]===0){out='1'+out;zeros++;}",
+    "  if(out==='')out='1';",
+    "  return out;",
+    "}",
+    "async function hash160ToAddress(h160hex){",
+    "  const h160=new Uint8Array(20);",
+    "  for(let i=0;i<20;i++)h160[i]=parseInt(h160hex.substr(i*2,2),16);",
+    "  const payload=new Uint8Array(21);",
+    "  payload[0]=0x00;",
+    "  payload.set(h160,1);",
+    "  const chk=await sha256(await sha256(payload));",
+    "  const full=new Uint8Array(25);",
+    "  full.set(payload,0);",
+    "  full.set(chk.slice(0,4),21);",
+    "  return base58encode(full);",
+    "}",
+
+    "let running=true;",
+    "let target='';",
+    "let id=0;",
+    "let cancelToken=0;",
+    "let seenLocal=new Set();",
+    "const SEEN_LIMIT=200000;",
+
+    "async function processRange(bStart,bEnd,myToken){",
+    "  const startPt=mulG(bStart);",
+    "  if(!startPt) return;",
+    "  let X=startPt[0],Y=startPt[1],Z=1n;",
+    "  let k=bStart;",
+    "  let processed=0;",
+    "  let lastReport=Date.now();",
+    "  const sample=[];",
+    "  const CHUNK=32;",
+    "",
+    "  while(running && cancelToken===myToken && k<=bEnd){",
+    "    const bufX=[],bufY=[],bufZ=[],bufK=[];",
+    "    for(let i=0;i<CHUNK;i++){",
+    "      if(!running||cancelToken!==myToken||k>bEnd) break;",
+    "      const kHex=k.toString(16);",
+    "      if(seenLocal.has(kHex)){",
+    "        const nxt=jacAddAffine(X,Y,Z,Gx,Gy);",
+    "        X=nxt[0];Y=nxt[1];Z=nxt[2];k+=1n;",
+    "        continue;",
+    "      }",
+    "      seenLocal.add(kHex);",
+    "      if(seenLocal.size>SEEN_LIMIT){",
+    "        const it=seenLocal.values();",
+    "        for(let s=0;s<SEEN_LIMIT/2;s++){const v=it.next();if(v.done)break;seenLocal.delete(v.value);}",
+    "      }",
+    "      bufX.push(X);bufY.push(Y);bufZ.push(Z);bufK.push(k);",
+    "      const nxt=jacAddAffine(X,Y,Z,Gx,Gy);",
+    "      X=nxt[0];Y=nxt[1];Z=nxt[2];",
+    "      k+=1n;",
+    "    }",
+    "    if(bufX.length===0) continue;",
+    "",
+    "    const res=batchToAffine(bufX,bufY,bufZ);",
+    "    const ax=res[0],ay=res[1];",
+    "    for(let i=0;i<ax.length;i++){",
+    "      if(!running||cancelToken!==myToken) return;",
+    "      const h=await hash160Hex(ax[i],ay[i]);",
+    "      processed++;",
+    "",
+    "      if(h===target){",
+    "        const addr=await hash160ToAddress(h);",
+    "        self.postMessage({type:'HIT', key:bufK[i].toString(16), addr:addr, worker:id});",
+    "        running=false;",
+    "        return;",
+    "      }",
+    "",
+    "      if(sample.length<4){",
+    "        const addr=await hash160ToAddress(h);",
+    "        sample.push({key:bufK[i].toString(16), addr:addr});",
+    "      }",
+    "    }",
+    "",
+    "    const now=Date.now();",
+    "    if(now-lastReport>100){",
+    "      self.postMessage({type:'progress', processed:processed, sample:sample.splice(0,sample.length)});",
+    "      processed=0;",
+    "      lastReport=now;",
+    "    }",
+    "  }",
+    "",
+    "  if(sample.length>0){",
+    "    self.postMessage({type:'progress', processed:processed, sample:sample.splice(0,sample.length)});",
+    "  }",
+    "}",
+
+    "self.onmessage=async(e)=>{",
+    "  const d=e.data;",
+    "",
+    "  if(d.cmd==='stop'){",
+    "    running=false;",
+    "    cancelToken++;",
+    "    return;",
+    "  }",
+    "",
+    "  if(d.cmd==='init'){",
+    "    target=d.target; id=d.id;",
+    "    running=true;",
+    "    self.postMessage({type:'ready',worker:id});",
+    "    return;",
+    "  }",
+    "",
+    "  if(d.cmd==='resetSeen'){",
+    "    seenLocal.clear();",
+    "    return;",
+    "  }",
+    "",
+    "  if(d.cmd==='task'){",
+    "    if(!running) return;",
+    "    cancelToken++;",
+    "    const myToken=cancelToken;",
+    "    const bStart=BigInt('0x'+d.from);",
+    "    const bEnd=BigInt('0x'+d.to);",
+    "    await processRange(bStart,bEnd,myToken);",
+    "    return;",
+    "  }",
+    "};"
+  ].join("\n");
+}
+
+/* =========================================================================
+   Состояние
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+
+let workers = [];
+let workerCountGlobal = 0;
+let targetH160 = '';
+let rangeS = 0n;
+let rangeE = 0n;
+let rangeSize = 1n;
+let windowSize = 1000n;
+let sensX = 50n;
+
+let anchorKey = 0n;
+let autoProgress = 0n;
+let useProgress = true;
+let randomStart = true;
+
+let drawing = false;
+let lastPt = null;
+let currentStrokePoints = [];
+let finishedStrokes = [];
+
+let totalChecked = 0n;
+let taskCounter = 0;
+let startTime = 0;
+let rateTimer = null;
+
+let lastDispatchAt = 0;
+const DISPATCH_MIN_MS = 30;
+let pendingCenter = null;
+let dispatchTimer = null;
+
+const KS_MAX = 40;
+let ksItems = [];
+
+let winSoundCtx = null, winSoundTimer = null;
+
+/* ----- Авторисовка ----- */
+let autoActive = false;
+let autoRAF = null;
+let autoStartTs = 0;
+let autoDurationMs = 30000;
+let autoPhase = 0;
+let autoState = {};
+let autoVx = 0, autoVy = 0;
+let autoTargetX = 0, autoTargetY = 0;
+let autoMode = 'horizontal';
+const AUTO_SPEED = 6;
+
+let strategy = 'jump';
+let autoStep = 500n;
+let jumpStep = 0n;
+let autoElapsedTimer = null;
+
+/* ----- Специфика стратегий ----- */
+let blockSize = 0n;
+let blockOffset = 0n;
+let blockIndex = 0n;
+let blockCount = 0n;
+
+let sectorOrder = [];
+let sectorIndex = 0;
+let sectorCount = 0;
+let sectorSize = 1n;
+let sectorPos = 0n;
+
+let goldenStep = 0n;
+let bitflipIndex = 0n;
+
+/* ----- Кенгуру ----- */
+let kangarooStep = 0n;
+
+let autoFlipX = 1;
+let autoFlipY = 1;
+let autoCenterDx = 0;
+let autoCenterDy = 0;
+let autoRowOffset = 0;
+let autoSpeedJitter = 1;
+
+/* ---- FPS ---- */
+let fpsFrames = 0;
+let fpsLastCheck = 0;
+let measuredFps = 60;
+
+/* ---- Пересчёт jumpStep ---- */
+let jumpRecalcTimer = null;
+const JUMP_RECALC_MS = 5000;
+
+/* ---- Дебаунс валидации ---- */
+let validateTimer = null;
+function scheduleValidate() {
+  if (validateTimer) clearTimeout(validateTimer);
+  validateTimer = setTimeout(() => {
+    validateTimer = null;
+    const ok = validateInputs();
+    if (workers.length > 0) {
+      killWorkers();
+      if (ok) initWorkers();
+    }
+    loadProgress();
+    recalcStrategyInfo();
+  }, 180);
+}
+
+/* =========================================================================
+   Звук
+   ========================================================================= */
+function playWinSoundOnce() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    winSoundCtx = ctx;
+    const now = ctx.currentTime;
+    const notes = [
+      { f: 523.25, t: 0.0,  d: 0.08 },
+      { f: 523.25, t: 0.10, d: 0.08 },
+      { f: 659.25, t: 0.20, d: 0.08 },
+      { f: 783.99, t: 0.30, d: 0.08 },
+      { f: 1046.50, t: 0.40, d: 0.30 },
+    ];
+    notes.forEach(({ f, t, d }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = f;
+      const s = now + t;
+      gain.gain.setValueAtTime(0.12, s);
+      gain.gain.exponentialRampToValueAtTime(0.001, s + d);
+      osc.start(s);
+      osc.stop(s + d + 0.05);
+    });
+  } catch (e) {}
+}
+
+function startWinSoundLoop() {
+  stopWinSound();
+  playWinSoundOnce();
+  winSoundTimer = setInterval(playWinSoundOnce, 1000);
+}
+
+function stopWinSound() {
+  if (winSoundTimer) { clearInterval(winSoundTimer); winSoundTimer = null; }
+  if (winSoundCtx) {
+    try { winSoundCtx.close(); } catch (e) {}
+    winSoundCtx = null;
+  }
+}
+
+/* =========================================================================
+   Canvas
+   ========================================================================= */
+const canvas = $('paint');
+const ctx2d = canvas.getContext('2d');
+let cw = 0, ch = 0;
+
+function fitCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const prev = cw > 0 && ch > 0 ? ctx2d.getImageData(0, 0, canvas.width, canvas.height) : null;
+
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx2d.lineCap = 'round';
+  ctx2d.lineJoin = 'round';
+  cw = rect.width;
+  ch = rect.height;
+
+  if (prev) { try { ctx2d.putImageData(prev, 0, 0); } catch (e) {} }
+}
+
+function hexShort(v, len) {
+  if (len === undefined) len = 20;
+  const s = v.toString(16);
+  if (s.length <= len) return '0x' + s;
+  return '0x' + s.slice(0, len - 2) + '…';
+}
+
+function drawSegment(a, b, hue) {
+  ctx2d.strokeStyle = `hsl(${hue}, 80%, 60%)`;
+  ctx2d.lineWidth = 3;
+  ctx2d.shadowColor = `hsl(${hue}, 80%, 60%)`;
+  ctx2d.shadowBlur = 8;
+  ctx2d.beginPath();
+  ctx2d.moveTo(a.x, a.y);
+  ctx2d.lineTo(b.x, b.y);
+  ctx2d.stroke();
+  ctx2d.shadowBlur = 0;
+}
+
+function redrawAll() {
+  ctx2d.clearRect(0, 0, cw, ch);
+  for (const st of finishedStrokes) {
+    const pts = st.points, hues = st.hues;
+    for (let i = 1; i < pts.length; i++) {
+      ctx2d.strokeStyle = `hsl(${hues[i]}, 75%, 55%)`;
+      ctx2d.lineWidth = 3;
+      ctx2d.beginPath();
+      ctx2d.moveTo(pts[i-1].x, pts[i-1].y);
+      ctx2d.lineTo(pts[i].x, pts[i].y);
+      ctx2d.stroke();
+    }
+  }
+}
+
+function updateScanFrame(pt) {
+  const frame = $('scanFrame');
+  if (!pt) { frame.classList.remove('visible'); return; }
+  const size = 90;
+  frame.style.width  = size + 'px';
+  frame.style.height = size + 'px';
+  frame.style.left   = (pt.x - size / 2) + 'px';
+  frame.style.top    = (pt.y - size / 2) + 'px';
+  frame.classList.add('visible');
+}
+
+function hideScanFrame() {
+  $('scanFrame').classList.remove('visible');
+}
+
+function updateAutoCursor(pt) {
+  const el = $('autoCursor');
+  if (!autoActive || !pt) { el.classList.remove('visible'); return; }
+  el.style.left = pt.x + 'px';
+  el.style.top  = pt.y + 'px';
+  el.classList.add('visible');
+}
+
+/* =========================================================================
+   Прогресс
+   ========================================================================= */
+function updateProgressUI() {
+  const total = Number(rangeSize);
+  const cur = Number(autoProgress);
+  const pct = total > 0 ? Math.min(100, (cur / total) * 100) : 0;
+  $('progressPct').textContent = pct.toFixed(4) + '%';
+  $('progressFill').style.width = pct + '%';
+  $('progressPos').textContent = hexShort(rangeS + autoProgress, 14);
+}
+
+function saveProgress() {
+  try {
+    localStorage.setItem('btcscan_range', rangeS.toString() + ':' + rangeE.toString());
+    localStorage.setItem('btcscan_cursor', autoProgress.toString());
+    localStorage.setItem('btcscan_strategy', strategy);
+  } catch (e) {}
+}
+
+function loadProgress() {
+  try {
+    const range = localStorage.getItem('btcscan_range');
+    const cur = localStorage.getItem('btcscan_cursor');
+    if (range === rangeS.toString() + ':' + rangeE.toString() && cur) {
+      autoProgress = BigInt(cur);
+      if (autoProgress >= rangeSize) autoProgress = 0n;
+    } else {
+      autoProgress = 0n;
+    }
+  } catch (e) {
+    autoProgress = 0n;
+  }
+  updateProgressUI();
+}
+
+/* =========================================================================
+   Кенгуру — обновление информации
+   ========================================================================= */
+function updateKangarooInfo() {
+  const el = $('kangarooField');
+  if (strategy !== 'kangaroo') {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+
+  const raw = $('kangarooStep').value.trim().replace(/^0x/i, '');
+  let step = 0n;
+  try {
+    step = BigInt('0x' + raw);
+  } catch (e) {
+    $('kgStep').textContent = '❌ некорректный hex';
+    $('kgPerSec').textContent = '—';
+    $('kgCover').textContent = '—';
+    return;
+  }
+  if (step < 1n) step = 1n;
+  kangarooStep = step;
+
+  const fps = Math.max(15, Math.round(measuredFps || 60));
+  const perSec = step * BigInt(fps);
+
+  // Красивое форматирование больших чисел
+  $('kgStep').textContent = '0x' + step.toString(16) + ' (' + formatBigNum(step) + ')';
+  $('kgPerSec').textContent = formatBigNum(perSec) + ' ключей/сек';
+
+  if (perSec > 0n) {
+    // Сколько секунд, чтобы покрыть весь диапазон
+    const coverSec = rangeSize / perSec;
+    let coverStr = '';
+
+    // Основное: сколько ПРЫЖКОВ нужно, чтобы покрыть диапазон
+    const jumps = rangeSize / step;
+    coverStr = formatBigNum(jumps) + ' прыжков';
+
+    if (coverSec > 0n) {
+      if (coverSec >= 86400n) coverStr += ' · ~' + (coverSec / 86400n).toString() + ' дней';
+      else if (coverSec >= 3600n) coverStr += ' · ~' + (coverSec / 3600n).toString() + ' ч';
+      else if (coverSec >= 60n) coverStr += ' · ~' + (coverSec / 60n).toString() + ' мин';
+      else coverStr += ' · ~' + coverSec.toString() + ' сек';
+    } else {
+      coverStr += ' · <1 сек';
+    }
+    $('kgCover').textContent = coverStr;
+  } else {
+    $('kgCover').textContent = '—';
+  }
+}
+
+/* Форматирование BigInt в человеко-читаемое число с разделителями */
+function formatBigNum(v) {
+  const s = v.toString();
+  // если число короткое — как есть
+  if (s.length <= 6) return s;
+
+  // если очень большое — научная запись
+  if (s.length > 15) {
+    // округляем до 4 значащих
+    const mantissa = s[0] + '.' + s.slice(1, 4);
+    const exp = s.length - 1;
+    return mantissa + '×10^' + exp;
+  }
+
+  // иначе — с разделителями по 3
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 === 0) out += ' ';
+    out += s[i];
+  }
+  return out;
+}
+
+/* =========================================================================
+   Рандомный шаг для кенгуру из глобального диапазона
+   ========================================================================= */
+/* Размер "порции" диапазона для рандомного шага.
+   Шаг будет в [1, rangeSize / kangarooRandomDivisor].
+   То есть за минимум kangarooRandomDivisor прыжков покрываем весь диапазон. */
+let kangarooRandomDivisor = 1000n;
+
+function generateRandomKangarooStep() {
+  if (!validateInputs()) {
+    $('autoInfo').textContent = '❌ Не могу сгенерировать: диапазон некорректен';
+    $('autoInfo').className = 'h160-info err';
+    return;
+  }
+  if (rangeSize <= 1n) {
+    $('kangarooStep').value = '1';
+    recalcStrategyInfo();
+    updateKangarooInfo();
+    return;
+  }
+
+  // Верхняя граница для рандома: rangeSize / divisor
+  let upper = rangeSize / kangarooRandomDivisor;
+  if (upper < 1n) upper = 1n;
+
+  // Логарифмическое (порядковое) распределение — чтобы шаг был
+  // равномерно распределён по порядкам, а не по абсолютным значениям
+  // Идея: выбираем экспоненту от 0 до log2(upper), получаем 2^exp
+  const maxBits = upper.toString(2).length;  // сколько бит у максимума
+  // Случайное число бит от 1 до maxBits
+  const randBits = 1 + Math.floor(Math.random() * maxBits);
+
+  // Случайное число с ровно randBits битами: [2^(randBits-1), 2^randBits - 1]
+  // Плюс — немного "сдвинем" младшие биты для разнообразия
+  let lower = 1n << BigInt(randBits - 1);
+  let upperLocal = (1n << BigInt(randBits)) - 1n;
+  if (upperLocal > upper) upperLocal = upper;
+  if (lower > upper) lower = upper;
+
+  const span = upperLocal - lower + 1n;
+  const rnd = randomBigIntBelow(span) + lower;
+
+  // Округлим вниз до чётного — убираем мелкий jitter
+  const step = rnd & ~0x1n;
+  const finalStep = step < 1n ? 1n : step;
+
+  $('kangarooStep').value = finalStep.toString(16);
+  kangarooStep = finalStep;
+
+  recalcStrategyInfo();
+  updateKangarooInfo();
+
+  $('autoInfo').textContent = '🎲 Случайный шаг кенгуру: 0x' +
+    finalStep.toString(16) + ' (' + finalStep.toString() + ')' +
+    ' · 1 из ' + kangarooRandomDivisor.toString() + ' диапазона';
+  $('autoInfo').className = 'h160-info warn';
+  setTimeout(() => {
+    if (!autoActive) {
+      $('autoInfo').textContent = 'Авторисовка: готова к запуску.';
+      $('autoInfo').className = 'h160-info';
+    }
+  }, 3000);
+}
+
+/* =========================================================================
+   Расчёт шагов и специфики стратегий
+   ========================================================================= */
+function recalcStrategyInfo() {
+  const durSec = parseFloat($('autoDuration').value);
+  const fps = Math.max(15, measuredFps || 60);
+
+  /* ---------- DENSE ---------- */
+  if (strategy === 'dense') {
+    const maxStep = windowSize / 2n > 0n ? windowSize / 2n : 1n;
+    autoStep = maxStep;
+    $('autoStep').value = autoStep.toString();
+
+    const keysPerSec = Number(autoStep) * fps;
+    const realTime = Number(rangeSize) / Math.max(1, keysPerSec);
+
+    let msg = '📏 Плотный: шаг <b>' + autoStep.toString() + '</b>' +
+      ' · ' + Math.round(keysPerSec).toLocaleString('en-US') + ' ключей/сек';
+    if (isFinite(realTime)) {
+      if (realTime > 3600) msg += ' · за <b>' + (realTime / 3600).toFixed(1) + ' ч</b>';
+      else if (realTime > 60) msg += ' · за <b>' + (realTime / 60).toFixed(1) + ' мин</b>';
+      else msg += ' · за <b>' + realTime.toFixed(1) + ' с</b>';
+    }
+    $('autoStepInfo').innerHTML = msg;
+    return;
+  }
+
+  /* ---------- JUMP ---------- */
+  if (strategy === 'jump') {
+    if (!Number.isFinite(durSec) || durSec <= 0) {
+      $('autoStepInfo').innerHTML = '🦘 Прыжковый: укажи время > 0 сек';
+      jumpStep = rangeSize / 60n;
+      return;
+    }
+    const totalFrames = BigInt(Math.max(1, Math.round(durSec * fps)));
+    let raw = rangeSize / totalFrames;
+    if (raw < 1n) raw = 1n;
+    const jitter = 0.97 + Math.random() * 0.06;
+    jumpStep = BigInt(Math.max(1, Math.round(Number(raw) * jitter)));
+    if (jumpStep < 1n) jumpStep = 1n;
+
+    $('autoStep').value = jumpStep.toString();
+
+    const stepN = Number(jumpStep);
+    const keysPerSec = stepN * fps;
+
+    let msg = '🦘 Прыжковый: шаг <b>' + jumpStep.toString() + '</b>' +
+      ' · ' + Math.round(keysPerSec).toLocaleString('en-US') + ' ключей/сек' +
+      ' · за ' + durSec.toFixed(0) + 'с ~' +
+      (Number(totalFrames) * 1000).toLocaleString('en-US') + ' ключей';
+    $('autoStepInfo').innerHTML = msg;
+    return;
+  }
+
+  /* ---------- KANGAROO ---------- */
+  if (strategy === 'kangaroo') {
+    const raw = $('kangarooStep').value.trim().replace(/^0x/i, '');
+    let step = 0n;
+    try {
+      step = BigInt('0x' + raw);
+      if (step < 1n) step = 1n;
+    } catch (e) {
+      $('autoStepInfo').innerHTML = '🦘 Кенгуру: <b style="color:#ff5c5c">некорректный hex</b> в поле шага';
+      return;
+    }
+    kangarooStep = step;
+    autoStep = step;
+    $('autoStep').value = '0x' + step.toString(16);
+
+    const keysPerSec = Number(step) * fps;
+    const cover = rangeSize / BigInt(Math.max(1, Math.round(keysPerSec)));
+
+    let msg = '🦘 Кенгуру (ручной шаг): <b>0x' + step.toString(16) + '</b>' +
+      ' · ' + Math.round(keysPerSec).toLocaleString('en-US') + ' ключей/сек';
+    if (cover > 0n) {
+      if (cover > 3600n) msg += ' · полный проход ~ <b>' + (Number(cover) / 3600).toFixed(2) + ' ч</b>';
+      else if (cover > 60n) msg += ' · полный проход ~ <b>' + (Number(cover) / 60).toFixed(2) + ' мин</b>';
+      else msg += ' · полный проход ~ <b>' + cover.toString() + ' сек</b>';
+    }
+    $('autoStepInfo').innerHTML = msg;
+    updateKangarooInfo();
+    return;
+  }
+
+  /* ---------- RANDOM ---------- */
+  if (strategy === 'random') {
+    $('autoStep').value = 'random';
+    $('autoStepInfo').innerHTML = '🎲 Случайный: каждая точка случайна в диапазоне';
+    return;
+  }
+
+  /* ---------- BLOCK ---------- */
+  if (strategy === 'block') {
+    blockCount = 256n;
+    blockSize = rangeSize / blockCount;
+    if (blockSize < 1n) blockSize = 1n;
+    const framesTotal = Math.max(1, Math.round((durSec > 0 ? durSec : 30) * fps));
+    const framesPerBlock = Math.max(1, Math.round(framesTotal / Number(blockCount)));
+    const chunkStep = blockSize / BigInt(framesPerBlock);
+    autoStep = chunkStep > 0n ? chunkStep : 1n;
+    $('autoStep').value = autoStep.toString();
+
+    const keysPerSec = Number(autoStep) * fps;
+    let msg = '📐 Блочная: <b>' + blockCount.toString() + '</b> блоков по <b>' +
+      blockSize.toString() + '</b>, шаг <b>' + autoStep.toString() + '</b>' +
+      ' · ' + Math.round(keysPerSec).toLocaleString('en-US') + ' ключей/сек';
+    $('autoStepInfo').innerHTML = msg;
+    return;
+  }
+
+  /* ---------- SHUFFLE ---------- */
+  if (strategy === 'shuffle') {
+    sectorCount = 64;
+    sectorSize = rangeSize / BigInt(sectorCount);
+    if (sectorSize < 1n) sectorSize = 1n;
+    const secPerSector = Math.max(0.2, (durSec > 0 ? durSec : 30) / sectorCount);
+    const framesPerSector = Math.max(1, Math.round(secPerSector * fps));
+    autoStep = sectorSize / BigInt(framesPerSector);
+    if (autoStep < 1n) autoStep = 1n;
+    $('autoStep').value = autoStep.toString();
+
+    const keysPerSec = Number(autoStep) * fps;
+    let msg = '🔀 Шаффл-сектор: <b>' + sectorCount + '</b> секторов по <b>' +
+      sectorSize.toString() + '</b>, шаг <b>' + autoStep.toString() + '</b>' +
+      ' · ' + Math.round(keysPerSec).toLocaleString('en-US') + ' ключей/сек';
+    $('autoStepInfo').innerHTML = msg;
+    return;
+  }
+
+  /* ---------- ASCEND ---------- */
+  if (strategy === 'ascend') {
+    autoStep = 1n;
+    $('autoStep').value = '1 (детерминированно)';
+    const keysPerSec = fps * Number(windowSize);
+    let msg = '⬆️ Вверх: детерминированный подъём, окно <b>' + windowSize.toString() + '</b>' +
+      ' · ' + Math.round(keysPerSec).toLocaleString('en-US') + ' ключей/сек';
+    $('autoStepInfo').innerHTML = msg;
+    return;
+  }
+
+  /* ---------- BITFLIP ---------- */
+  if (strategy === 'bitflip') {
+    autoStep = 1n;
+    $('autoStep').value = 'bit-reversal';
+    $('autoStepInfo').innerHTML =
+      '🌲 Битовая инверсия: индекс проходит через <b>2^32</b> позиций в порядке ' +
+      'реверса битов — равномерное покрытие без коллизий';
+    return;
+  }
+
+  /* ---------- DIAGONAL ---------- */
+  if (strategy === 'diagonal') {
+    const num = 3819660112501051n;
+    const den = 10000000000000000n;
+    goldenStep = (rangeSize * num) / den;
+    if (goldenStep < 1n) goldenStep = 1n;
+    goldenStep = goldenStep & ~0xFFn;
+    if (goldenStep < 1n) goldenStep = 1n;
+    autoStep = goldenStep;
+    $('autoStep').value = goldenStep.toString();
+
+    const keysPerSec = Number(goldenStep) * fps;
+    let msg = '🧭 Диагональ: шаг <b>' + goldenStep.toString() + '</b> ≈ rangeSize/φ' +
+      ' · ' + Math.round(keysPerSec).toLocaleString('en-US') + ' ключей/сек';
+    $('autoStepInfo').innerHTML = msg;
+    return;
+  }
+}
+
+/* =========================================================================
+   FPS
+   ========================================================================= */
+function tickFps(now) {
+  fpsFrames++;
+  if (now - fpsLastCheck >= 1000) {
+    measuredFps = fpsFrames * 1000 / (now - fpsLastCheck);
+    fpsFrames = 0;
+    fpsLastCheck = now;
+    $('fps').textContent = measuredFps.toFixed(0);
+  }
+  requestAnimationFrame(tickFps);
+}
+requestAnimationFrame((t) => { fpsLastCheck = t; tickFps(t); });
+
+/* =========================================================================
+   HUD
+   ========================================================================= */
+function updateHud(dx, dy) {
+  const h = $('hud');
+  if (!drawing) { h.classList.remove('visible'); return; }
+  h.classList.add('visible');
+  h.classList.toggle('auto-mode', autoActive);
+  $('hudDx').textContent = dx;
+  if (dy !== undefined) $('hudDy').textContent = dy;
+  $('hudCenter').textContent = hexShort(anchorKey, 22);
+
+  const half = windowSize / 2n;
+  let from = anchorKey - half; if (from < rangeS) from = rangeS;
+  let to   = anchorKey + half; if (to > rangeE)   to   = rangeE;
+  $('hudWindow').textContent = hexShort(from, 16) + ' … ' + hexShort(to, 16);
+
+  if (autoActive) {
+    $('hudAutoRow').style.display = 'block';
+    const sec = ((Date.now() - autoStartTs) / 1000).toFixed(1);
+    const total = autoDurationMs > 0 ? (autoDurationMs / 1000).toFixed(0) : '∞';
+    let stepInfo = '';
+    if (strategy === 'dense') stepInfo = ' · шаг ' + autoStep.toString();
+    else if (strategy === 'jump') stepInfo = ' · прыжок ' + jumpStep.toString();
+    else if (strategy === 'kangaroo') stepInfo = ' · 🦘 0x' + kangarooStep.toString(16);
+    else if (strategy === 'random') stepInfo = ' · random';
+    else if (strategy === 'block') stepInfo = ' · блок ' + (blockIndex + 1n).toString() + '/' + blockCount.toString();
+    else if (strategy === 'shuffle') stepInfo = ' · сектор ' + (sectorIndex + 1) + '/' + sectorCount;
+    else if (strategy === 'ascend') stepInfo = ' · +1';
+    else if (strategy === 'bitflip') stepInfo = ' · bit-rev';
+    else if (strategy === 'diagonal') stepInfo = ' · шаг ' + goldenStep.toString();
+    $('hudAuto').textContent = autoMode + ' · ' + sec + 'с / ' + total + 'с' + stepInfo;
+  } else {
+    $('hudAutoRow').style.display = 'none';
+  }
+}
+
+/* =========================================================================
+   Диспатч окна
+   ========================================================================= */
+function scheduleDispatch(centerKey) {
+  pendingCenter = centerKey;
+  const now = performance.now();
+  const since = now - lastDispatchAt;
+
+  if (since >= DISPATCH_MIN_MS) {
+    doDispatch();
+  } else if (!dispatchTimer) {
+    dispatchTimer = setTimeout(() => {
+      dispatchTimer = null;
+      doDispatch();
+    }, DISPATCH_MIN_MS - since);
+  }
+}
+
+function doDispatch() {
+  if (pendingCenter === null || workers.length === 0) return;
+  lastDispatchAt = performance.now();
+
+  const center = pendingCenter;
+  pendingCenter = null;
+
+  const half = windowSize / 2n;
+  let from = center - half;
+  let to   = center + half;
+  if (from < rangeS) from = rangeS;
+  if (to > rangeE)   to   = rangeE;
+  if (to < from) return;
+
+  const total = to - from + 1n;
+  if (total <= 0n) return;
+
+  const n = BigInt(workers.length);
+  const perWorker = (total + n - 1n) / n;
+
+  taskCounter++;
+
+  let cur = from;
+  for (let i = 0; i < workers.length; i++) {
+    if (cur > to) break;
+    let end = cur + perWorker - 1n;
+    if (end > to) end = to;
+
+    workers[i].postMessage({
+      cmd: 'task',
+      from: cur.toString(16),
+      to:   end.toString(16)
+    });
+    cur = end + 1n;
+  }
+
+  $('workerCount').textContent = workers.length;
+}
+
+/* =========================================================================
+   Ядро рисования
+   ========================================================================= */
+function corePointerDown(x, y) {
+  if (!validateInputs()) return false;
+  if (workers.length === 0) initWorkers();
+
+  drawing = true;
+  const p = { x: Math.round(x), y: Math.round(y) };
+  lastPt = p;
+
+  if (autoActive) {
+    // anchorKey уже установлен
+  } else {
+    const xBig  = BigInt(Math.round(p.x));
+    const yBig  = BigInt(Math.round(p.y));
+    const cwBig = BigInt(Math.round(cw)) || 1n;
+    const chBig = BigInt(Math.round(ch)) || 1n;
+    const half = rangeSize / 2n;
+    const fx = (half * xBig) / cwBig;
+    const fy = (half * yBig) / chBig;
+    anchorKey = rangeS + ((fx + fy) % rangeSize);
+    if (anchorKey > rangeE) anchorKey = rangeE;
+  }
+
+  currentStrokePoints = [p];
+
+  $('paintWrap').classList.add('drawing');
+  $('paintOverlay').classList.add('hidden');
+
+  updateScanFrame(p);
+  updateHud(0, 0);
+  scheduleDispatch(anchorKey);
+  return true;
+}
+
+function corePointerMove(x, y) {
+  if (!drawing || !lastPt) return;
+  const p = { x: Math.round(x), y: Math.round(y) };
+  const dx = p.x - lastPt.x;
+  const dy = p.y - lastPt.y;
+  if (dx === 0 && dy === 0) return;
+
+  if (autoActive) {
+    applyAutoStep();
+  } else {
+    const delta = BigInt(dx) * sensX + BigInt(dy) * sensX;
+    anchorKey = anchorKey + delta;
+    anchorKey = rangeS + (((anchorKey - rangeS) % rangeSize) + rangeSize) % rangeSize;
+  }
+
+  const hue = (Number(anchorKey % 360n) + 360) % 360;
+  drawSegment(lastPt, p, hue);
+  currentStrokePoints.push(p);
+
+  updateScanFrame(p);
+  updateHud(dx, dy);
+  scheduleDispatch(anchorKey);
+
+  lastPt = p;
+}
+
+/* =========================================================================
+   Применение шага — ОДИН РАЗ за кадр
+   ========================================================================= */
+function applyAutoStep() {
+  if (rangeSize <= 1n) return;
+
+  /* ---------- DENSE ---------- */
+  if (strategy === 'dense') {
+    anchorKey = anchorKey + autoStep;
+    while (anchorKey > rangeE) {
+      anchorKey = rangeS + (anchorKey - rangeE - 1n);
+    }
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- JUMP ---------- */
+  if (strategy === 'jump') {
+    anchorKey = anchorKey + jumpStep;
+    while (anchorKey > rangeE) {
+      anchorKey = rangeS + (anchorKey - rangeE - 1n);
+    }
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- KANGAROO ---------- */
+  if (strategy === 'kangaroo') {
+    anchorKey = anchorKey + kangarooStep;
+    while (anchorKey > rangeE) {
+      anchorKey = rangeS + (anchorKey - rangeE - 1n);
+    }
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- RANDOM ---------- */
+  if (strategy === 'random') {
+    const rnd = randomBigIntBelow(rangeSize);
+    anchorKey = rangeS + rnd;
+    if (anchorKey > rangeE) anchorKey = rangeE;
+    autoProgress = rnd;
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- BLOCK ---------- */
+  if (strategy === 'block') {
+    blockOffset += autoStep;
+    if (blockOffset >= blockSize) {
+      blockIndex = (blockIndex + 1n) % blockCount;
+      blockOffset = randomBigIntBelow(blockSize);
+    }
+    anchorKey = rangeS + blockIndex * blockSize + blockOffset;
+    if (anchorKey > rangeE) anchorKey = rangeE;
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- SHUFFLE ---------- */
+  if (strategy === 'shuffle') {
+    sectorPos += autoStep;
+    if (sectorPos >= sectorSize) {
+      sectorIndex = (sectorIndex + 1) % sectorOrder.length;
+      sectorPos = 0n;
+    }
+    const curSector = BigInt(sectorOrder[sectorIndex]);
+    anchorKey = rangeS + curSector * sectorSize + sectorPos;
+    if (anchorKey > rangeE) anchorKey = rangeE;
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- ASCEND ---------- */
+  if (strategy === 'ascend') {
+    anchorKey = anchorKey + 1n;
+    if (anchorKey > rangeE) {
+      anchorKey = rangeE;
+      if (autoActive) stopAutoDraw('достигнут конец диапазона');
+      return;
+    }
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- BITFLIP ---------- */
+  if (strategy === 'bitflip') {
+    bitflipIndex = bitflipIndex + 1n;
+    const rev = reverseBits32(bitflipIndex & 0xFFFFFFFFn);
+    const scaled = (rev * rangeSize) >> 32n;
+    anchorKey = rangeS + scaled;
+    if (anchorKey > rangeE) anchorKey = rangeE;
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+
+  /* ---------- DIAGONAL ---------- */
+  if (strategy === 'diagonal') {
+    anchorKey = anchorKey + goldenStep;
+    while (anchorKey > rangeE) {
+      anchorKey = rangeS + (anchorKey - rangeE - 1n);
+    }
+    autoProgress = anchorKey - rangeS;
+    if (autoProgress < 0n) autoProgress = 0n;
+    if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
+    saveProgressThrottled();
+    updateProgressUI();
+    return;
+  }
+}
+
+/* Bit-reversal 32-битного числа (BigInt) */
+function reverseBits32(x) {
+  let v = x & 0xFFFFFFFFn;
+  v = ((v & 0x55555555n) << 1n) | ((v >> 1n) & 0x55555555n);
+  v = ((v & 0x33333333n) << 2n) | ((v >> 2n) & 0x33333333n);
+  v = ((v & 0x0F0F0F0Fn) << 4n) | ((v >> 4n) & 0x0F0F0F0Fn);
+  v = ((v & 0x00FF00FFn) << 8n) | ((v >> 8n) & 0x00FF00FFn);
+  v = ((v & 0x0000FFFFn) << 16n) | ((v >> 16n) & 0x0000FFFFn);
+  return v & 0xFFFFFFFFn;
+}
+
+/* Крипто-случайное число < bound */
+function randomBigIntBelow(bound) {
+  if (bound <= 1n) return 0n;
+  const bits = bound.toString(2).length;
+  const bytes = Math.ceil(bits / 8);
+  const mask = (1n << BigInt(bits)) - 1n;
+  const buf = new Uint8Array(bytes);
+  for (let attempt = 0; attempt < 64; attempt++) {
+    crypto.getRandomValues(buf);
+    let r = 0n;
+    for (const b of buf) r = (r << 8n) | BigInt(b);
+    r = r & mask;
+    if (r < bound) return r;
+  }
+  let r = 0n;
+  for (const b of buf) r = (r << 8n) | BigInt(b);
+  return r % bound;
+}
+
+let lastSaveAt = 0;
+function saveProgressThrottled() {
+  const now = performance.now();
+  if (now - lastSaveAt > 1000) {
+    lastSaveAt = now;
+    saveProgress();
+  }
+}
+
+function corePointerUp() {
+  if (!drawing) return;
+  drawing = false;
+  $('paintWrap').classList.remove('drawing');
+
+  if (currentStrokePoints.length > 1) {
+    const hues = [];
+    for (let i = 0; i < currentStrokePoints.length; i++) hues.push((i * 17) % 360);
+    finishedStrokes.push({
+      points: currentStrokePoints.slice(),
+      hues
+    });
+    if (finishedStrokes.length > 30) finishedStrokes.shift();
+  }
+  currentStrokePoints = [];
+  lastPt = null;
+  redrawAll();
+  $('hud').classList.remove('visible');
+  hideScanFrame();
+
+  if (autoActive) saveProgress();
+}
+
+/* =========================================================================
+   Pointer-события
+   ========================================================================= */
+function onPointerDown(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if (!corePointerDown(x, y)) return;
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+}
+
+function onPointerMove(e) {
+  if (!drawing || autoActive) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  corePointerMove(x, y);
+}
+
+function onPointerUp(e) {
+  if (autoActive) return;
+  try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+  corePointerUp();
+}
+
+canvas.addEventListener('pointerdown', onPointerDown);
+canvas.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('pointerup', onPointerUp);
+canvas.addEventListener('pointercancel', onPointerUp);
+canvas.addEventListener('pointerleave', onPointerUp);
+
+/* =========================================================================
+   Авторисовка
+   ========================================================================= */
+function startAutoDraw() {
+  if (autoActive) return;
+
+  if (!validateInputs()) return;
+  if (workers.length === 0) initWorkers();
+
+  workers.forEach(w => w.postMessage({ cmd: 'resetSeen' }));
+
+  autoMode = $('autoMode').value;
+  strategy = $('strategy').value;
+  const durSec = parseFloat($('autoDuration').value);
+  autoDurationMs = (Number.isFinite(durSec) && durSec > 0) ? durSec * 1000 : 0;
+
+  useProgress = $('useProgress').checked;
+  randomStart = $('randomStart').checked;
+
+  recalcStrategyInfo();
+
+  if (jumpRecalcTimer) { clearInterval(jumpRecalcTimer); jumpRecalcTimer = null; }
+  if (strategy === 'jump') {
+    jumpRecalcTimer = setInterval(() => {
+      if (autoActive) recalcStrategyInfo();
+    }, JUMP_RECALC_MS);
+  }
+
+  autoActive = true;
+  autoStartTs = Date.now();
+
+  /* ====== Инициализация специфики стратегий ====== */
+  if (strategy === 'block') {
+    blockCount = 256n;
+    blockSize = rangeSize / blockCount;
+    if (blockSize < 1n) blockSize = 1n;
+    blockIndex = 0n;
+    blockOffset = randomBigIntBelow(blockSize);
+  }
+
+  if (strategy === 'shuffle') {
+    sectorCount = 64;
+    sectorSize = rangeSize / BigInt(sectorCount);
+    if (sectorSize < 1n) sectorSize = 1n;
+    sectorOrder = [];
+    for (let i = 0; i < sectorCount; i++) sectorOrder.push(i);
+    for (let i = sectorOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [sectorOrder[i], sectorOrder[j]] = [sectorOrder[j], sectorOrder[i]];
+    }
+    sectorIndex = 0;
+    sectorPos = 0n;
+  }
+
+  if (strategy === 'bitflip') {
+    bitflipIndex = useProgress ? autoProgress : 0n;
+    if (bitflipIndex > 0xFFFFFFFFn) bitflipIndex = bitflipIndex & 0xFFFFFFFFn;
+  }
+
+  /* ====== Стартовая позиция ====== */
+  if (strategy === 'bitflip') {
+    const rev = reverseBits32(bitflipIndex & 0xFFFFFFFFn);
+    const scaled = (rev * rangeSize) >> 32n;
+    anchorKey = rangeS + scaled;
+    autoProgress = scaled;
+  } else if (strategy === 'block') {
+    anchorKey = rangeS + blockIndex * blockSize + blockOffset;
+    autoProgress = anchorKey - rangeS;
+  } else if (strategy === 'shuffle') {
+    const firstSector = BigInt(sectorOrder[0]);
+    anchorKey = rangeS + firstSector * sectorSize;
+    autoProgress = anchorKey - rangeS;
+  } else if (useProgress && (strategy === 'dense' || strategy === 'jump' || strategy === 'ascend' || strategy === 'diagonal' || strategy === 'kangaroo')) {
+    anchorKey = rangeS + autoProgress;
+    if (anchorKey > rangeE) anchorKey = rangeE;
+  } else if (randomStart) {
+    const rnd = randomBigIntBelow(rangeSize);
+    anchorKey = rangeS + rnd;
+    autoProgress = rnd;
+  } else {
+    anchorKey = rangeS;
+    autoProgress = 0n;
+  }
+  if (anchorKey > rangeE) anchorKey = rangeE;
+  if (anchorKey < rangeS) anchorKey = rangeS;
+
+  /* ====== Визуальные рандомы ====== */
+  autoPhase = Math.random() * Math.PI * 2 * 10;
+  autoVx = Math.random() * cw;
+  autoVy = Math.random() * ch;
+  autoTargetX = Math.random() * cw;
+  autoTargetY = Math.random() * ch;
+  autoFlipX = Math.random() < 0.5 ? 1 : -1;
+  autoFlipY = Math.random() < 0.5 ? 1 : -1;
+  autoCenterDx = (Math.random() - 0.5) * cw * 0.6;
+  autoCenterDy = (Math.random() - 0.5) * ch * 0.6;
+  autoRowOffset = Math.floor(Math.random() * 1000);
+  autoSpeedJitter = 0.7 + Math.random() * 0.6;
+
+  autoState = {
+    fa: 2 + Math.floor(Math.random() * 3),
+    fb: 2 + Math.floor(Math.random() * 3),
+    fd: Math.random() * Math.PI * 2,
+    spiralCycle: Math.PI * 2 * (6 + Math.floor(Math.random() * 4)),
+    roseK: 2 + Math.floor(Math.random() * 6),
+    roseD: 1 + Math.floor(Math.random() * 4),
+    gearTeeth: 8 + Math.floor(Math.random() * 8),
+    gearDepth: 0.2 + Math.random() * 0.25,
+    startOffset: Math.random() * Math.PI * 2 * 100,
+    waveAmp: ch * (0.15 + Math.random() * 0.2),
+    waveFreq: 2 + Math.random() * 3,
+    waveY: ch * 0.5,
+    waveDrift: (Math.random() - 0.5) * ch * 0.1
+  };
+
+  if (!corePointerDown(autoVx, autoVy)) {
+    autoActive = false;
+    return;
+  }
+
+  $('paintWrap').classList.add('auto');
+  $('autoBtn').classList.add('active');
+  $('autoBtn').textContent = '⏹ СТОП АВТО';
+
+  let stratLabel = strategy;
+  if (strategy === 'dense') stratLabel = 'плотный';
+  else if (strategy === 'jump') stratLabel = 'прыжковый, шаг ' + jumpStep.toString();
+  else if (strategy === 'kangaroo') stratLabel = '🦘 кенгуру, шаг 0x' + kangarooStep.toString(16);
+  else if (strategy === 'random') stratLabel = 'случайный';
+  else if (strategy === 'block') stratLabel = 'блоки ×' + blockCount.toString();
+  else if (strategy === 'shuffle') stratLabel = 'шаффл-сектор ×' + sectorCount;
+  else if (strategy === 'ascend') stratLabel = 'детерминированный +1';
+  else if (strategy === 'bitflip') stratLabel = 'bit-reversal';
+  else if (strategy === 'diagonal') stratLabel = 'диагональ φ';
+
+  $('autoInfo').textContent = '▶ Авторисовка: ' + autoMode + ' · ' + stratLabel +
+    ' · старт 0x' + anchorKey.toString(16).slice(-8) +
+    ' · лимит: ' + (autoDurationMs > 0 ? (autoDurationMs/1000).toFixed(0) + 'с' : '∞');
+  $('autoInfo').className = 'h160-info warn';
+
+  updateAutoCursor({ x: autoVx, y: autoVy });
+
+  if (autoDurationMs > 0) {
+    if (autoElapsedTimer) clearInterval(autoElapsedTimer);
+    autoElapsedTimer = setInterval(() => {
+      if (!autoActive) return;
+      if (Date.now() - autoStartTs >= autoDurationMs) {
+        stopAutoDraw('время вышло');
+      }
+    }, 200);
+  }
+
+  let lastFrame = performance.now();
+  function loop(now) {
+    if (!autoActive) return;
+    const dt = Math.min(50, now - lastFrame);
+    lastFrame = now;
+
+    const stepPx = AUTO_SPEED * (dt / 16.67);
+
+    moveVirtualCursor(stepPx);
+    corePointerMove(autoVx, autoVy);
+    updateAutoCursor({ x: autoVx, y: autoVy });
+    updateHud(0, 0);
+
+    autoRAF = requestAnimationFrame(loop);
+  }
+  autoRAF = requestAnimationFrame(loop);
+}
+
+function stopAutoDraw(reason) {
+  if (!autoActive) return;
+  autoActive = false;
+
+  if (autoRAF) { cancelAnimationFrame(autoRAF); autoRAF = null; }
+  if (autoElapsedTimer) { clearInterval(autoElapsedTimer); autoElapsedTimer = null; }
+  if (jumpRecalcTimer) { clearInterval(jumpRecalcTimer); jumpRecalcTimer = null; }
+
+  corePointerUp();
+  saveProgress();
+
+  $('autoCursor').classList.remove('visible');
+  $('paintWrap').classList.remove('auto');
+  $('autoBtn').classList.remove('active');
+  $('autoBtn').textContent = '▶ АВТОРИСОВКА';
+
+  if (reason) {
+    $('autoInfo').textContent = '⏹ Авторисовка остановлена: ' + reason;
+    $('autoInfo').className = 'h160-info warn';
+  } else {
+    $('autoInfo').textContent = 'Авторисовка: готова к запуску.';
+    $('autoInfo').className = 'h160-info';
+  }
+}
+
+/* =========================================================================
+   Движение виртуального курсора — 16 режимов
+   ========================================================================= */
+function moveVirtualCursor(stepPx) {
+  const sp = stepPx * autoSpeedJitter;
+  const cx = cw / 2 + autoCenterDx * 0.3;
+  const cy = ch / 2 + autoCenterDy * 0.3;
+  const maxR = Math.min(cw, ch) / 2 - 12;
+  const S = autoState;
+
+  switch (autoMode) {
+
+    case 'chaos': {
+      const dx = autoTargetX - autoVx;
+      const dy = autoTargetY - autoVy;
+      const dist = Math.hypot(dx, dy);
+      if (dist < Math.max(sp * 1.5, 8)) {
+        let nx, ny, nd, tries = 0;
+        do {
+          nx = Math.random() * cw;
+          ny = Math.random() * ch;
+          nd = Math.hypot(nx - autoVx, ny - autoVy);
+          tries++;
+        } while (nd < Math.min(cw, ch) * 0.25 && tries < 8);
+        autoTargetX = nx;
+        autoTargetY = ny;
+      } else {
+        autoVx += (dx / dist) * sp;
+        autoVy += (dy / dist) * sp;
+      }
+      break;
+    }
+
+    case 'lissajous': {
+      autoPhase += 0.010 * sp;
+      const ax = (cw / 2 - 20);
+      const ay = (ch / 2 - 20);
+      autoVx = cx + autoFlipX * ax * Math.sin(S.fa * autoPhase + S.startOffset);
+      autoVy = cy + autoFlipY * ay * Math.sin(S.fb * autoPhase + S.fd);
+      break;
+    }
+
+    case 'spiral': {
+      autoPhase += 0.010 * sp;
+      const cycle = S.spiralCycle;
+      const t = (autoPhase % cycle) / cycle;
+      const r = maxR * t;
+      const theta = autoPhase + S.startOffset;
+      autoVx = cx + autoFlipX * r * Math.cos(theta);
+      autoVy = cy + autoFlipY * r * Math.sin(theta);
+      break;
+    }
+
+    case 'zigzag': {
+      const bandH = 30;
+      const bandW = 60;
+      const totalBands = Math.max(1, Math.floor((ch + bandW) / bandH));
+      autoPhase += 0.9 * sp;
+      const bandIndex = Math.floor(autoPhase / cw) % totalBands;
+      const xInBand = autoPhase % cw;
+      const goingRight = (Math.floor(autoPhase / (cw * totalBands)) % 2) === 0;
+      const baseY = bandIndex * bandH + (autoRowOffset % bandH);
+      const slope = (bandH * 0.9) / cw;
+      const yOffset = goingRight ? slope * xInBand : -slope * xInBand;
+      autoVx = goingRight ? xInBand : (cw - xInBand);
+      autoVy = baseY + yOffset + bandH * 0.5;
+      break;
+    }
+
+    case 'horizontal': {
+      autoPhase += 0.8 * sp;
+      const rowH = Math.max(14, 22 - Math.floor(cw / 100));
+      const totalRows = Math.max(1, Math.floor(ch / rowH));
+      const totalLen = cw * totalRows;
+      const pos = (autoPhase + S.startOffset) % (totalLen * 2);
+      const forward = pos < totalLen;
+      const p = forward ? pos : (totalLen * 2 - pos);
+      const rowIdx = Math.floor(p / cw) % totalRows;
+      const xOnRow = p % cw;
+      autoVx = forward
+        ? (rowIdx % 2 === 0 ? xOnRow : cw - xOnRow)
+        : (rowIdx % 2 === 0 ? cw - xOnRow : xOnRow);
+      autoVy = rowH * 0.5 + (forward ? rowIdx : (totalRows - 1 - rowIdx)) * rowH;
+      break;
+    }
+
+    case 'vertical': {
+      autoPhase += 0.8 * sp;
+      const colW = Math.max(14, 22 - Math.floor(ch / 100));
+      const totalCols = Math.max(1, Math.floor(cw / colW));
+      const totalLen = ch * totalCols;
+      const pos = (autoPhase + S.startOffset) % (totalLen * 2);
+      const forward = pos < totalLen;
+      const p = forward ? pos : (totalLen * 2 - pos);
+      const colIdx = Math.floor(p / ch) % totalCols;
+      const yOnCol = p % ch;
+      autoVy = forward
+        ? (colIdx % 2 === 0 ? yOnCol : ch - yOnCol)
+        : (colIdx % 2 === 0 ? ch - yOnCol : yOnCol);
+      autoVx = colW * 0.5 + (forward ? colIdx : (totalCols - 1 - colIdx)) * colW;
+      break;
+    }
+
+    case 'wave': {
+      autoPhase += 0.7 * sp;
+      autoVx = (autoPhase * 0.5 + S.startOffset) % cw;
+      autoVy = S.waveY
+             + Math.sin(autoVx / cw * Math.PI * 2 * S.waveFreq) * S.waveAmp
+             + Math.sin(autoPhase * 0.05) * S.waveDrift;
+      break;
+    }
+
+    case 'tornado': {
+      autoPhase += 0.014 * sp;
+      const turns = 7;
+      const cycle = Math.PI * 2 * turns;
+      const t = (autoPhase % cycle) / cycle;
+      const r = maxR * Math.pow(t, 0.7);
+      const theta = autoPhase + S.startOffset;
+      const drift = Math.sin(autoPhase * 0.05) * 15;
+      autoVx = cx + r * Math.cos(theta) + drift;
+      autoVy = cy + r * Math.sin(theta) * 0.85;
+      break;
+    }
+
+    case 'rose': {
+      autoPhase += 0.012 * sp;
+      const theta = autoPhase + S.startOffset;
+      const k = S.roseK;
+      const d = S.roseD;
+      const r = maxR * Math.abs(Math.cos((k / d) * theta));
+      autoVx = cx + r * Math.cos(theta);
+      autoVy = cy + r * Math.sin(theta);
+      break;
+    }
+
+    case 'diamond': {
+      autoPhase += 0.9 * sp;
+      const ax = cw / 2 - 20;
+      const ay = ch / 2 - 20;
+      const perim = 4 * (ax + ay);
+      const t = ((autoPhase + S.startOffset) % perim) / perim;
+      if (t < 0.25) {
+        const u = t / 0.25;
+        autoVx = cx + (u - 0.5) * 2 * ax;
+        autoVy = cy - ay + u * ay;
+      } else if (t < 0.50) {
+        const u = (t - 0.25) / 0.25;
+        autoVx = cx + ax - u * ax;
+        autoVy = cy + (u - 0.5) * 2 * ay;
+      } else if (t < 0.75) {
+        const u = (t - 0.50) / 0.25;
+        autoVx = cx - u * 2 * ax + ax;
+        autoVy = cy + ay - u * 2 * ay;
+      } else {
+        const u = (t - 0.75) / 0.25;
+        autoVx = cx - ax + u * 2 * ax;
+        autoVy = cy - ay + u * 2 * ay;
+      }
+      break;
+    }
+
+    case 'target': {
+      autoPhase += 0.012 * sp;
+      const rings = 8;
+      const cycle = Math.PI * 2;
+      const ringStep = maxR / rings;
+      const t = autoPhase + S.startOffset;
+      const ringIdx = Math.floor(t / cycle) % rings;
+      const r = ringStep * (ringIdx + 1);
+      const theta = t;
+      autoVx = cx + r * Math.cos(theta);
+      autoVy = cy + r * Math.sin(theta);
+      break;
+    }
+
+    case 'butterfly': {
+      autoPhase += 0.010 * sp;
+      const theta = autoPhase + S.startOffset;
+      const scale = Math.min(cw, ch) / 42;
+      const r = Math.exp(Math.sin(theta)) - 2 * Math.cos(4 * theta)
+              + Math.pow(Math.sin((2 * theta - Math.PI) / 24), 5);
+      autoVx = cx + r * Math.cos(theta) * scale;
+      autoVy = cy + r * Math.sin(theta) * scale;
+      break;
+    }
+
+    case 'gear': {
+      autoPhase += 0.010 * sp;
+      const teeth = S.gearTeeth;
+      const depth = S.gearDepth;
+      const theta = autoPhase + S.startOffset;
+      const baseR = maxR * 0.8;
+      const tooth = ((theta * teeth / (Math.PI * 2)) % 1 + 1) % 1;
+      const r = baseR * (1 + (tooth > 0.5 ? -depth : depth));
+      autoVx = cx + r * Math.cos(theta);
+      autoVy = cy + r * Math.sin(theta);
+      break;
+    }
+
+    case 'dna': {
+      autoPhase += 0.8 * sp;
+      const y = (autoPhase * 1.5 + S.startOffset) % ch;
+      const strand = Math.floor(autoPhase / (ch / 1.5)) % 2;
+      const wav = Math.sin(y / ch * Math.PI * 2 * 4 + strand * Math.PI);
+      autoVx = cw * 0.5 + wav * (cw * 0.35);
+      autoVy = y;
+      break;
+    }
+
+    case 'sawtooth': {
+      autoPhase += 1.0 * sp;
+      const bandH = 20;
+      const bandW = 80;
+      const totalBands = Math.max(1, Math.floor((cw + bandW) / bandW));
+      const bandIdx = Math.floor((autoPhase + S.startOffset) / ch) % totalBands;
+      const yInBand = (autoPhase + S.startOffset) % ch;
+      const baseX = bandIdx * bandW + (autoRowOffset % bandW);
+      const slope = 0.7;
+      autoVx = baseX + yInBand * slope;
+      autoVy = yInBand;
+      break;
+    }
+
+    case 'hypno': {
+      autoPhase += 0.014 * sp;
+      const baseR = maxR * 0.5;
+      const r = baseR * (1 + 0.3 * Math.sin(autoPhase * 0.7));
+      const theta = autoPhase + S.startOffset;
+      const driftX = Math.sin(autoPhase * 0.03) * cw * 0.15;
+      const driftY = Math.cos(autoPhase * 0.05) * ch * 0.15;
+      autoVx = cx + driftX + r * Math.cos(theta);
+      autoVy = cy + driftY + r * Math.sin(theta);
+      break;
+    }
+
+    default: {
+      autoPhase += 0.7 * sp;
+      const rowH = 20;
+      const totalRows = Math.max(1, Math.floor(ch / rowH));
+      const row = Math.floor(autoPhase / cw) + autoRowOffset;
+      const rowIdx = row % totalRows;
+      const goingRight = (Math.floor(row / totalRows) % 2) === 0;
+      const xOnRow = autoPhase % cw;
+      autoVx = goingRight ? xOnRow : (cw - xOnRow);
+      autoVy = 10 + rowIdx * rowH;
+      break;
+    }
+  }
+
+  if (autoVx < 0) autoVx = 0;
+  if (autoVx > cw) autoVx = cw;
+  if (autoVy < 0) autoVy = 0;
+  if (autoVy > ch) autoVy = ch;
+}
+
+$('autoBtn').addEventListener('click', () => {
+  if (autoActive) stopAutoDraw('вручную');
+  else startAutoDraw();
+});
+
+$('useProgress').addEventListener('change', (e) => {
+  useProgress = e.target.checked;
+});
+
+$('randomStart').addEventListener('change', (e) => {
+  randomStart = e.target.checked;
+});
+
+$('strategy').addEventListener('change', (e) => {
+  strategy = e.target.value;
+  recalcStrategyInfo();
+  updateStrategyHint();
+  updateKangarooInfo();
+});
+
+$('kangarooStep').addEventListener('input', () => {
+  recalcStrategyInfo();
+  updateKangarooInfo();
+});
+
+/* Кнопка 🎲 Random в поле Кенгуру */
+$('kangarooRandomBtn').addEventListener('click', generateRandomKangarooStep);
+
+/* Поле "делитель" для рандомного шага */
+$('kangarooDivisor').addEventListener('input', () => {
+  const v = parseInt($('kangarooDivisor').value, 10);
+  if (Number.isFinite(v) && v >= 2) kangarooRandomDivisor = BigInt(v);
+  else kangarooRandomDivisor = 1000n;
+  updateKangarooInfo();
+});
+
+/* Кнопка ✓ OK — применить делитель + сразу сгенерировать шаг */
+$('kangarooApplyBtn').addEventListener('click', () => {
+  const v = parseInt($('kangarooDivisor').value, 10);
+  if (Number.isFinite(v) && v >= 2) kangarooRandomDivisor = BigInt(v);
+  else kangarooRandomDivisor = 1000n;
+  generateRandomKangarooStep();
+});
+
+function updateStrategyHint() {
+  const hints = {
+    dense: '<b>Плотный</b>: медленно, но каждый ключ проверяется (для маленьких диапазонов).',
+    jump: '<b>Прыжковый</b>: покрывает весь диапазон равномерно, но с пропусками. ±3% рандом шага.',
+    kangaroo: '<b>🦘 Кенгуру</b>: шаг задаётся вручную в hex, не зависит от времени. Кнопка <b>🎲 Random</b> генерирует случайный шаг из заданного диапазона.',
+    random: '<b>Случайный</b>: каждая точка — случайна в диапазоне.',
+    block: '<b>Блочная</b>: диапазон делится на 256 блоков, идёт по блокам со случайным смещением.',
+    shuffle: '<b>Шаффл-сектор</b>: 64 сектора, порядок обхода перемешан случайно.',
+    ascend: '<b>Вверх</b>: детерминированный подъём, каждый ключ проверяется по очереди.',
+    bitflip: '<b>Битовая инверсия</b>: Van der Corput — равномерное покрытие без повторов.',
+    diagonal: '<b>Диагональ</b>: шаг = rangeSize/φ, иррациональное смещение даёт максимальное покрытие.'
+  };
+  $('strategyHint').innerHTML = hints[strategy] || '';
+}
+
+['autoDuration', 'windowSize', 'start', 'end'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    recalcStrategyInfo();
+  });
+});
+
+/* =========================================================================
+   Воркеры
+   ========================================================================= */
+function initWorkers() {
+  if (workers.length > 0) return;
+  if (!targetH160) return;
+
+  let nw = 2;
+  try {
+    nw = parseInt($('threads').value, 10);
+    if (!Number.isFinite(nw) || nw < 1) nw = 1;
+    if (nw > 16) nw = 16;
+  } catch (e) { nw = 2; }
+  workerCountGlobal = nw;
+
+  totalChecked = 0n;
+  $('count').textContent = '0';
+
+  const blob = new Blob([buildWorkerCode()], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+
+  for (let i = 0; i < nw; i++) {
+    const w = new Worker(url);
+    w.onmessage = (e) => handleWorkerMessage(e, i);
+    w.onerror = (err) => console.error('worker error', err);
+    w.postMessage({ cmd: 'init', target: targetH160, id: i });
+    workers.push(w);
+  }
+
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  $('workerCount').textContent = workers.length;
+  startTime = Date.now();
+  startRateTimer();
+}
+
+function killWorkers() {
+  workers.forEach(w => {
+    try { w.postMessage({ cmd: 'stop' }); w.terminate(); } catch (e) {}
+  });
+  workers = [];
+  stopRateTimer();
+}
+
+function handleWorkerMessage(e, workerIdx) {
+  const d = e.data;
+
+  if (d.type === 'progress') {
+    if (d.processed) {
+      totalChecked += BigInt(d.processed);
+      $('count').textContent = Number(totalChecked).toLocaleString('en-US');
+    }
+    if (d.sample && d.sample.length) {
+      for (const s of d.sample) pushKsRow(s.key, s.addr, false);
+    }
+  } else if (d.type === 'HIT') {
+    pushKsRow(d.key, d.addr, true);
+    if (autoActive) stopAutoDraw('найден целевой адрес');
+    finishWin(d);
+  }
+}
+
+/* =========================================================================
+   Лента
+   ========================================================================= */
+function pushKsRow(key, addr, isHit) {
+  ksItems.unshift({ key, addr, isHit });
+  if (ksItems.length > KS_MAX) ksItems.length = KS_MAX;
+  renderKsList();
+  $('ksCount').textContent = ksItems.length;
+}
+
+function renderKsList() {
+  const el = $('ksList');
+  if (ksItems.length === 0) {
+    el.innerHTML = '<div class="ks-empty">Начни рисовать или включи авторисовку</div>';
+    return;
+  }
+  el.innerHTML = ksItems.map(it =>
+    '<div class="ks-row' + (it.isHit ? ' hit' : '') + '">' +
+      '<div class="ks-key">0x' + (it.key.length > 18 ? it.key.slice(0, 16) + '…' : it.key) + '</div>' +
+      '<div class="ks-addr">' + it.addr + '</div>' +
+    '</div>'
+  ).join('');
+}
+
+/* =========================================================================
+   Скорость
+   ========================================================================= */
+function startRateTimer() {
+  if (rateTimer) clearInterval(rateTimer);
+  rateTimer = setInterval(() => {
+    const elapsed = Math.max(0.001, (Date.now() - startTime) / 1000);
+    const rate = Number(totalChecked) / elapsed / 1000;
+    $('rate').textContent = rate.toFixed(1);
+  }, 250);
+}
+
+function stopRateTimer() {
+  if (rateTimer) { clearInterval(rateTimer); rateTimer = null; }
+}
+
+/* =========================================================================
+   Победа
+   ========================================================================= */
+function showFoundWindow(key, addr) {
+  $('fwKey').textContent = '0x' + key;
+  $('fwAddr').textContent = addr;
+  $('foundWindow').classList.add('visible');
+}
+
+function finishWin(hit) {
+  startWinSoundLoop();
+  showFoundWindow(hit.key, hit.addr);
+}
+
+$('fwClose').addEventListener('click', () => {
+  $('foundWindow').classList.remove('visible');
+  stopWinSound();
+});
+
+$('fwMute').addEventListener('click', () => {
+  stopWinSound();
+  $('fwMute').textContent = '🔇 Звук выкл';
+});
+
+$('fwCopy').addEventListener('click', async () => {
+  const key = $('fwKey').textContent;
+  try {
+    await navigator.clipboard.writeText(key);
+    $('fwCopy').textContent = '✓ Скопировано';
+    setTimeout(() => { $('fwCopy').textContent = '📋 Копировать ключ'; }, 1500);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = key;
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    document.body.removeChild(ta);
+    $('fwCopy').textContent = '✓ Скопировано';
+    setTimeout(() => { $('fwCopy').textContent = '📋 Копировать ключ'; }, 1500);
+  }
+});
+
+/* =========================================================================
+   Валидация
+   ========================================================================= */
+function validateInputs() {
+  const addr = $('addr').value.trim();
+  const sHex = $('start').value.trim().replace(/^0x/i, '');
+  const eHex = $('end').value.trim().replace(/^0x/i, '');
+
+  try {
+    targetH160 = addressToH160Hex(addr);
+  } catch (err) {
+    $('h160Info').textContent = '❌ Адрес: ' + err.message;
+    $('h160Info').className = 'h160-info err';
+    return false;
+  }
+  try {
+    rangeS = BigInt('0x' + sHex);
+    rangeE = BigInt('0x' + eHex);
+  } catch (err) {
+    $('h160Info').textContent = '❌ Hex диапазон: некорректный';
+    $('h160Info').className = 'h160-info err';
+    return false;
+  }
+  if (rangeE < rangeS) {
+    $('h160Info').textContent = '❌ Конец диапазона меньше начала';
+    $('h160Info').className = 'h160-info err';
+    return false;
+  }
+
+  rangeSize = rangeE - rangeS + 1n;
+
+  try {
+    const w = BigInt($('windowSize').value.trim() || '1000');
+    if (w >= 2n && w <= 50000n) windowSize = w;
+  } catch (e) {}
+
+  try {
+    const sv = parseInt($('sensX').value, 10);
+    if (Number.isFinite(sv) && sv > 0) sensX = BigInt(sv);
+  } catch (e) {}
+
+  const cwBig = BigInt(Math.max(1, Math.round(cw || 600)));
+  if (rangeSize < 100000n) {
+    const maxSensX = rangeSize / cwBig;
+    if (maxSensX > 0n && sensX > maxSensX) sensX = maxSensX;
+    if (sensX < 1n) sensX = 1n;
+  }
+
+  const sizeStr = rangeSize.toString();
+  const sizeShort = sizeStr.length > 20 ? sizeStr.slice(0, 8) + '…' + sizeStr.slice(-8) : sizeStr;
+
+  $('h160Info').textContent = '✅ hash160: ' + targetH160 +
+    ' | диапазон: ' + sizeShort +
+    ' | окно: ' + windowSize.toString() +
+    ' | шаг: ' + sensX.toString();
+  $('h160Info').className = 'h160-info ok';
+
+  return true;
+}
+
+/* =========================================================================
+   Кнопки
+   ========================================================================= */
+$('resetProgressBtn').addEventListener('click', () => {
+  autoProgress = 0n;
+  anchorKey = rangeS;
+  blockIndex = 0n;
+  blockOffset = 0n;
+  sectorIndex = 0;
+  sectorPos = 0n;
+  bitflipIndex = 0n;
+  saveProgress();
+  updateProgressUI();
+});
+
+$('clearBtn').addEventListener('click', () => {
+  finishedStrokes = [];
+  ksItems = [];
+  renderKsList();
+  $('ksCount').textContent = '0';
+  redrawAll();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (autoActive) { stopAutoDraw('Esc'); return; }
+    if (drawing) {
+      corePointerUp();
+      redrawAll();
+    }
+  }
+});
+
+['addr','start','end','windowSize','sensX','threads'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    scheduleValidate();
+  });
+});
+
+/* =========================================================================
+   Старт
+   ========================================================================= */
+window.addEventListener('DOMContentLoaded', () => {
+  fitCanvas();
+  validateInputs();
+  loadProgress();
+  updateProgressUI();
+  recalcStrategyInfo();
+  updateStrategyHint();
+  updateKangarooInfo();
+
+  try {
+    const h = ripemd160(new Uint8Array(0));
+    const hex = [...h].map(b => b.toString(16).padStart(2, '0')).join('');
+    if (hex === '9c1185a5c5e9fc54612808977ee8f548b2258d31') {
+      console.log('✅ RIPEMD-160 OK');
+    } else {
+      console.error('❌ RIPEMD-160 FAILED:', hex);
+    }
+  } catch (err) { console.error(err); }
+});
+
+window.addEventListener('resize', () => {
+  fitCanvas();
+  redrawAll();
+});
+</script>
+
+</body>
+</html>
