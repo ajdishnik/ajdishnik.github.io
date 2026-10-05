@@ -1111,7 +1111,10 @@ let goldenStep = 0n;
 let bitflipIndex = 0n;
 
 /* ----- Кенгуру ----- */
+/* ----- Кенгуру ----- */
 let kangarooStep = 0n;
+let kangarooJumps = 0n;
+let kangarooMaxJumps = 0n;
 
 let autoFlipX = 1;
 let autoFlipY = 1;
@@ -1822,11 +1825,22 @@ function applyAutoStep() {
   }
 
   /* ---------- KANGAROO ---------- */
+  /* ---------- KANGAROO ---------- */
   if (strategy === 'kangaroo') {
     anchorKey = anchorKey + kangarooStep;
     while (anchorKey > rangeE) {
       anchorKey = rangeS + (anchorKey - rangeE - 1n);
     }
+
+    // Счётчик прыжков — останавливаемся при полном покрытии
+    kangarooJumps++;
+    if (kangarooMaxJumps > 0n && kangarooJumps >= kangarooMaxJumps) {
+      if (autoActive) stopAutoDraw(
+        'диапазон покрыт за ' + kangarooJumps.toString() + ' прыжков'
+      );
+      return;
+    }
+
     autoProgress = anchorKey - rangeS;
     if (autoProgress < 0n) autoProgress = 0n;
     if (autoProgress >= rangeSize) autoProgress = rangeSize - 1n;
@@ -2077,6 +2091,24 @@ function startAutoDraw() {
     bitflipIndex = useProgress ? autoProgress : 0n;
     if (bitflipIndex > 0xFFFFFFFFn) bitflipIndex = bitflipIndex & 0xFFFFFFFFn;
   }
+  
+  
+    if (strategy === 'kangaroo') {
+    // Получаем актуальный шаг из поля
+    const raw = $('kangarooStep').value.trim().replace(/^0x/i, '');
+    try {
+      let step = BigInt('0x' + raw);
+      if (step < 1n) step = 1n;
+      kangarooStep = step;
+    } catch (e) {
+      // фолбэк — если hex битый, используем 1
+      kangarooStep = 1n;
+    }
+    // Максимум различных точек = rangeSize / шаг + 1
+    kangarooMaxJumps = rangeSize / kangarooStep + 1n;
+    kangarooJumps = 0n;
+  }
+  
 
   /* ====== Стартовая позиция ====== */
   if (strategy === 'bitflip') {
