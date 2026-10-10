@@ -144,12 +144,74 @@
   .blocklog .empty { color: #555; }
   .hint { margin-top: 10px; font-size: 10px; color: #4a3a5e; text-align: center; }
   .hint kbd { background: rgba(255,255,255,0.06); border-radius: 4px; padding: 1px 6px; color: #8b7aa8; font-family: Consolas, monospace; }
+
+
+.divider {
+  width: 180px;
+  height: 2px;
+  margin: 12px auto;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #ffd700,
+    #fff3a0,
+    #ffd700,
+    transparent
+  );
+  box-shadow:
+    0 0 6px #ffd700,
+    0 0 14px rgba(255, 215, 0, 0.6);
+  border-radius: 50%;
+}
+
+
+
+.subtitle {
+  font-size: 32px;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 2px;
+
+  background: linear-gradient(
+    180deg,
+    #fff8c5 0%,
+    #ffd700 35%,
+    #ffae00 65%,
+    #fff0a0 100%
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  filter: drop-shadow(0 0 6px rgba(255, 193, 7, 0.45));
+  margin-top: 12px;
+}
+
+.currency {
+  font-size: 28px;
+}
+
+.usd {
+  font-size: 16px;
+  letter-spacing: 3px;
+}
 </style>
 </head>
 <body>
 <div class="casino">
   <h1><span class="emoji">🎰</span> BTC CASINO</h1>
-  <div class="subtitle">$ 500 000 USD</div>
+  
+  
+  <div class="divider"></div>
+  
+<div class="subtitle">
+  <span class="currency">$</span> 500 000 <span class="usd">USD</span>
+</div>
+
+<div class="divider"></div>
+
+
 
   <button class="toggle" id="settingsToggle">⚙️ Настройки поиска</button>
   <div class="collapse" id="settings">
