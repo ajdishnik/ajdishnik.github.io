@@ -713,6 +713,16 @@ function startRate(){
     $('progress').style.width=pct+'%';
     if(r>0&&totalSession>done){const rem=(totalSession-done)/(r*1000);$('eta').textContent=rem<60?rem.toFixed(0)+' с':rem<3600?(rem/60).toFixed(1)+' мин':rem<86400?(rem/3600).toFixed(1)+' ч':(rem/86400).toFixed(0)+' дн';}
     else $('eta').textContent='—';
+
+    // живое обновление блока в #result для авто
+    if(autoMode && spinning){
+      setResult([
+        '🔁 Авто — поиск...',
+        '<span class="label">Префикс:</span> '+$('prefix').value.trim(),
+        filterK ? '<span class="label">Фильтр:</span> '+filterK+' байт h160' : '<span class="label">Фильтр:</span> нет',
+        '<span class="label">Блок:</span> '+blocksDone.toString()+' / '+totalBlocksBig.toString()+' (по '+blockSizeGlobal.toString()+' ключей)',
+      ],'searching');
+    }
   },250);
 }
 function stopRate(){if(rateTimer){clearInterval(rateTimer);rateTimer=null;}}
@@ -722,10 +732,11 @@ function startSearch(){
   const p=validate(); if(!p)return;
   stopWinSound();
   spinning=true;stopped=false;workerDoneSet.clear();
-  globalCount=0n;rangeSizeGlobal=p.rangeSize;rangeS=p.s;rangeE=p.e;blockSizeGlobal=p.blockSize;
+  globalCount=0n;blocksDone=0n;rangeSizeGlobal=p.rangeSize;rangeS=p.s;rangeE=p.e;blockSizeGlobal=p.blockSize;
   totalBlocksBig=p.blocksCount;startTime=Date.now();lastCounts.clear();
 
-  let filterK=0, filterMaskArr=null;
+  let filterMaskArr=null;
+  filterK=0;
   try{
     const f=buildPrefixFilter(p.prefix);
     if(f){
@@ -755,9 +766,11 @@ function startSearch(){
   for(let i=0;i<3;i++){$('reel'+i).className='reel spinning';startReel(reels[i], 8+i*3);}
 
   const modeLabel = autoMode ? '🔁 Авто' : '🎲 Ручной';
-  const blockInfo = autoMode
-    ? '<span class="label">Режим:</span> весь диапазон ('+p.blocksCount.toString()+' блоков)'
+
+   const blockInfo = autoMode
+    ? '<span class="label">Блок:</span> 0 / '+p.blocksCount.toString()+' (по '+p.blockSize.toString()+' ключей)'
     : '<span class="label">Блок:</span> '+(sessionProcessed+1n).toString()+' / '+sessionBlocksTotal.toString()+' (по '+p.blockSize.toString()+' ключей)';
+
   const filterInfo = filterK ? '<span class="label">Фильтр:</span> '+filterK+' байт h160' : '<span class="label">Фильтр:</span> нет';
   setResult([modeLabel + ' — поиск...','<span class="label">Префикс:</span> '+p.prefix,filterInfo,blockInfo],'searching');
 
@@ -825,7 +838,12 @@ function finishNotfound(){
   ['prefix','suffix','start','end','blockSize','threads'].forEach(id=>$(id).disabled=false);
   stopReelsRandomly('stop');
   if(autoMode){
-    setResult(['🏁 <b>Диапазон пройден (авто).</b>','<span class="label">Проверено ключей:</span> '+Number(globalCount).toLocaleString('en-US'),'<span class="label">Не найдено.</span>'],'stopped');
+    setResult([
+      '🏁 <b>Диапазон пройден (авто).</b>',
+      '<span class="label">Проверено ключей:</span> '+Number(globalCount).toLocaleString('en-US'),
+      '<span class="label">Блоков пройдено:</span> '+blocksDone.toString()+' из '+totalBlocksBig.toString()+' (по '+blockSizeGlobal.toString()+' ключей)',
+      '<span class="label">Не найдено.</span>',
+    ],'stopped');
     sessionActive=false;sessionProcessed=0n;
   } else {
     sessionProcessed += 1n;
