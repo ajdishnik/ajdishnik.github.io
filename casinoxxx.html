@@ -2,16 +2,20 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>🎰 Bitcoin</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    min-height: 100vh; display: flex; justify-content: center; align-items: center;
-    background: radial-gradient(ellipse at top, #2a1a3e 0%, #1a0f2e 40%, #0a0612 100%);
-    color: #fff; font-family: 'Segoe UI', Arial, sans-serif; padding: 16px;
-    overflow-x: hidden;
-  }
+html, body {
+  height: 100%;
+  overflow: hidden;      /* запрещает прокрутку корневого скролла */
+}
+body {
+  min-height: 100vh;     /* fallback для старых браузеров */
+  min-height: 100dvh;    /* динамический размер */
+  min-height: 100svh;    /* small viewport — игнорирует клавиатуру */
+  overflow: hidden;
+}
   .casino {
     width: 100%; max-width: 520px; padding: 24px 20px;
     background: linear-gradient(180deg, #1e1428 0%, #14091f 100%);
