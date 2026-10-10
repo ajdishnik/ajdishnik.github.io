@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 Bitcoin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh; display: flex; justify-content: center; align-items: center;
+    background: radial-gradient(ellipse at top, #2a1a3e 0%, #1a0f2e 40%, #0a0612 100%);
+    color: #fff; font-family: 'Segoe UI', Arial, sans-serif; padding: 16px;
+    overflow-x: hidden;
+  }
+  .casino {
+    width: 100%; max-width: 520px; padding: 24px 20px;
+    background: linear-gradient(180deg, #1e1428 0%, #14091f 100%);
+    border-radius: 24px; text-align: center; position: relative;
+    box-shadow: 0 25px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,213,74,0.15),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .casino::before {
+    content: ''; position: absolute; inset: -2px; border-radius: 26px; padding: 2px;
+    background: linear-gradient(135deg, #ffd54a, #ff8a00, #ffd54a, transparent, #ffd54a);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0.4; pointer-events: none;
+  }
+  h1 {
+    font-size: 28px; letter-spacing: 1px;
+    background: linear-gradient(180deg, #fff7c2, #ffd54a 40%, #ff8a00);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(255,213,74,0.5); margin-bottom: 4px;
+  }
+  h1 .emoji {
+    -webkit-text-fill-color: initial;
+    -webkit-background-clip: initial;
+    background: none; color: initial; display: inline-block;
+  }
+  .subtitle { color: #ffd54a; font-size: 22px; font-weight: 1000; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
+  .toggle {
+    width: 100%; padding: 10px 14px; margin-bottom: 10px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,213,74,0.15);
+    border-radius: 12px; color: #b8a0d0; font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: all 0.2s; font-family: inherit;
+  }
+  .toggle:hover { border-color: rgba(255,213,74,0.4); color: #ffd54a; }
+  .toggle::after { content: '▾'; transition: transform 0.25s; font-size: 14px; }
+  .toggle.open::after { transform: rotate(180deg); }
+  .collapse { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, margin 0.35s; text-align: left; margin-bottom: 0; }
+  .collapse.open { max-height: 600px; margin-bottom: 16px; }
+  .collapse.open.log { max-height: 400px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; margin-bottom: 5px; color: #9b86b8; font-size: 11px; letter-spacing: 0.5px; }
+  input {
+    width: 100%; padding: 11px 12px; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; background: rgba(0,0,0,0.35); color: #fff; font-size: 13px;
+    outline: none; font-family: Consolas, monospace; transition: border 0.2s, box-shadow 0.2s;
+  }
+  input:focus { border-color: #ffd54a; box-shadow: 0 0 0 3px rgba(255,213,74,0.12); }
+  input:disabled { opacity: 0.4; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  .note { font-size: 10px; color: #6b5a80; margin-top: 4px; }
+  .reels { display: flex; justify-content: center; gap: 10px; margin: 22px 0; }
+  .reel {
+    width: 96px; height: 110px; border-radius: 16px; overflow: hidden;
+    background: linear-gradient(180deg, #0a0612, #150c22 50%, #0a0612);
+    border: 2px solid #3a2a52; position: relative;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 20px rgba(0,0,0,0.5);
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  .reel::before, .reel::after { content: ''; position: absolute; left: 0; right: 0; height: 24px; z-index: 2; pointer-events: none; }
+  .reel::before { top: 0; background: linear-gradient(180deg, #0a0612, transparent); }
+  .reel::after { bottom: 0; background: linear-gradient(0deg, #0a0612, transparent); }
+  .reel.spinning { border-color: #ffd54a; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 25px rgba(255,213,74,0.4); }
+  .reel.win { border-color: #54e878; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 30px rgba(84,232,120,0.8); animation: winPulse 0.6s infinite alternate; }
+  .reel.stop { border-color: #ff5c5c; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 15px rgba(255,92,92,0.5); }
+  @keyframes winPulse { from { transform: scale(1); } to { transform: scale(1.05); } }
+  .reel-strip { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-direction: column; align-items: center; will-change: transform; }
+  .reel-strip span { height: 110px; display: flex; align-items: center; justify-content: center; font-size: 48px; line-height: 1; flex-shrink: 0; }
+  .controls { display: flex; gap: 10px; margin-top: 8px; }
+  button.main {
+    flex: 1; padding: 16px; border: 0; border-radius: 14px;
+    background: linear-gradient(180deg, #ffe477, #ffb700);
+    color: #2a1500; font-size: 16px; font-weight: 800; letter-spacing: 1.5px;
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+    box-shadow: 0 6px 0 #a86e00, 0 10px 25px rgba(255,183,0,0.35);
+    text-transform: uppercase;
+  }
+  button.main:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 0 #a86e00, 0 14px 30px rgba(255,183,0,0.5); }
+  button.main:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #a86e00, 0 4px 12px rgba(255,183,0,0.35); }
+  button.main:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.main.stop { background: linear-gradient(180deg, #ff7777, #d62828); color: #fff; box-shadow: 0 6px 0 #8a1a1a, 0 10px 25px rgba(214,40,40,0.4); }
+  button.main.stop:hover:not(:disabled) { box-shadow: 0 8px 0 #8a1a1a, 0 14px 30px rgba(214,40,40,0.55); }
+  button.mode { width: 54px; border: 1px solid rgba(255,213,74,0.25); background: rgba(255,255,255,0.04); border-radius: 14px; color: #b8a0d0; font-size: 20px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+  button.mode:hover { border-color: #ffd54a; color: #ffd54a; }
+  button.mode.auto-on { background: rgba(84,232,120,0.15); border-color: #54e878; color: #54e878; box-shadow: 0 0 15px rgba(84,232,120,0.3); }
+  .result {
+    margin-top: 16px; padding: 14px; border-radius: 12px; min-height: 80px;
+    font-size: 12px; line-height: 1.7; font-family: Consolas, monospace; text-align: left;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06);
+    color: #a090b8; transition: all 0.3s; word-break: break-all;
+  }
+  .result .line { margin: 2px 0; }
+  .result .label { color: #6b5a80; }
+  .result .key { color: #ffd54a; font-weight: bold; }
+  .result .addr { color: #7ab8ff; }
+  .result.searching { color: #ffd54a; border-color: rgba(255,213,74,0.3); }
+  .result.stopped { color: #ff9c9c; }
+  .result.win { background: linear-gradient(180deg, rgba(84,232,120,0.12), rgba(84,232,120,0.04)); border-color: #54e878; color: #c8ffd8; box-shadow: 0 0 25px rgba(84,232,120,0.3); }
+  .result.win .key { color: #8fffb8; }
+  .result.win .addr { color: #a8e0ff; }
+  .progress { margin-top: 14px; height: 6px; background: rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+  .progress > div { height: 100%; width: 0%; border-radius: 4px; background: linear-gradient(90deg, #ffd54a, #ff8a00); transition: width 0.2s linear; box-shadow: 0 0 10px rgba(255,183,0,0.6); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 10px; font-size: 11px; color: #7a6a90; font-family: Consolas, monospace; }
+  .stats b { color: #58a6ff; }
+  .found { margin-top: 12px; padding: 12px; background: rgba(84,232,120,0.06); border: 1px solid rgba(84,232,120,0.25); border-radius: 10px; font-family: Consolas, monospace; font-size: 11px; text-align: left; }
+  .found-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .found h4 { color: #54e878; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .found-clear {
+    background: none; border: 1px solid rgba(84,232,120,0.35); color: #54e878;
+    border-radius: 6px; padding: 3px 8px; font-size: 10px; font-family: inherit;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .found-clear:hover { background: rgba(84,232,120,0.15); border-color: #54e878; }
+  .found-list { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .found .item { padding: 8px 10px; background: rgba(0,0,0,0.3); border-radius: 6px; line-height: 1.6; }
+  .found .item:last-child { margin-bottom: 0; }
+  .found .k { color: #8fffb8; font-weight: bold; word-break: break-all; }
+  .found .a { color: #7ab8ff; word-break: break-all; }
+  .found .n { color: #555; font-size: 10px; margin-right: 6px; }
+  .blocklog { font-family: Consolas, monospace; font-size: 10px; }
+  .blocklog h4 { color: #7ab8ff; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .blocklog .list { max-height: 110px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-right: 4px; }
+  .blocklog .list::-webkit-scrollbar { width: 4px; }
+  .blocklog .list::-webkit-scrollbar-thumb { background: rgba(255,213,74,0.3); border-radius: 2px; }
+  .blocklog .row { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 4px; background: rgba(255,255,255,0.02); transition: background 0.25s; }
+  .blocklog .row.fresh { background: rgba(255,213,74,0.12); }
+  .blocklog .w { color: #555; min-width: 24px; }
+  .blocklog .r { color: #7ab8ff; word-break: break-all; }
+  .blocklog .arrow { color: #555; }
+  .blocklog .len { color: #6b5a80; margin-left: auto; white-space: nowrap; }
+  .blocklog .empty { color: #555; }
+  .hint { margin-top: 10px; font-size: 10px; color: #4a3a5e; text-align: center; }
+  .hint kbd { background: rgba(255,255,255,0.06); border-radius: 4px; padding: 1px 6px; color: #8b7aa8; font-family: Consolas, monospace; }
+</style>
+</head>
+<body>
+<div class="casino">
+  <h1><span class="emoji">🎰</span> BTC CASINO</h1>
+  <div class="subtitle">$ 500 000 USD</div>
+
+  <button class="toggle" id="settingsToggle">⚙️ Настройки поиска</button>
+  <div class="collapse" id="settings">
+    <div class="field">
+      <label>Префикс адреса</label>
+      <input id="prefix" value="1PWo3JeB9jrG" placeholder="напр. 1Love">
+    </div>
+    <div class="field">
+      <label>Суффикс (необязательно, медленнее)</label>
+      <input id="suffix" value="" placeholder="напр. XXX">
+    </div>
+    <div class="field">
+      <label>Диапазон ключей (hex)</label>
+      <div class="row">
+        <div><input id="start" value="400000000000000000" placeholder="от"></div>
+        <div><input id="end" value="7fffffffffffffffff" placeholder="до"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Размер блока</label>
+      <input id="blockSize" value="10000">
+      <div class="note">Меньше — чаще «прыжки», чуть медленнее</div>
+    </div>
+    <div class="field">
+      <label>Потоков (воркеров)</label>
+      <input id="threads" value="1">
+      <div class="note">1 — минимум нагрева</div>
+    </div>
+  </div>
+
+  <div class="reels">
+    <div class="reel" id="reel0"><div class="reel-strip" id="strip0"></div></div>
+    <div class="reel" id="reel1"><div class="reel-strip" id="strip1"></div></div>
+    <div class="reel" id="reel2"><div class="reel-strip" id="strip2"></div></div>
+  </div>
+
+  <div class="controls">
+    <button class="main" id="spin">🎲 КРУТИТЬ</button>
+    <button class="mode" id="modeBtn" title="Авторежим">🔁</button>
+  </div>
+
+  <div class="result" id="result">Нажмите «Крутить», чтобы начать поиск</div>
+
+  <div class="found" id="found" style="display:none">
+    <div class="found-head">
+      <h4>🏆 Найденные ключи</h4>
+      <button class="found-clear" id="foundClear">✕ Очистить</button>
+    </div>
+    <div class="found-list" id="foundList"></div>
+  </div>
+
+  <button class="toggle" id="logToggle">🔍 Последние проверенные блоки</button>
+  <div class="collapse log" id="logPanel">
+    <div class="blocklog">
+      <div class="list" id="blockList"><div class="empty">—</div></div>
+    </div>
+  </div>
+
+  <div class="progress"><div id="progress"></div></div>
+
+  <div class="stats">
+    <div>Скорость: <b id="rate">0</b> k/s</div>
+    <div>Проверено: <b id="count">0</b></div>
+    <div>Прогресс: <b id="percent">0%</b></div>
+    <div>Осталось: <b id="eta">—</b></div>
+  </div>
+
+  <div class="hint"><kbd>Enter</kbd> старт/стоп • <kbd>Esc</kbd> стоп</div>
+</div>
+
+<script>
+const mod=(a,m)=>{const r=a%m;return r>=0n?r:r+m;};
+
+/* ===== Синхронные SHA-256 / RIPEMD-160 / base58 (для UI-потока) ===== */
+function sha256Sync(msg){
+  const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const len=msg.length,bitLen=len*8,paddedLen=(len+9+63)&~63;
+  const buf=new Uint8Array(paddedLen);buf.set(msg);buf[len]=0x80;
+  const dv=new DataView(buf.buffer);
+  dv.setUint32(paddedLen-8,Math.floor(bitLen/0x100000000),false);
+  dv.setUint32(paddedLen-4,bitLen>>>0,false);
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const W=new Uint32Array(64);
+  for(let i=0;i<paddedLen;i+=64){
+    for(let t=0;t<16;t++)W[t]=dv.getUint32(i+t*4,false);
+    for(let t=16;t<64;t++){const s0=((W[t-15]>>>7)|(W[t-15]<<25))^((W[t-15]>>>18)|(W[t-15]<<14))^(W[t-15]>>>3);const s1=((W[t-2]>>>17)|(W[t-2]<<15))^((W[t-2]>>>19)|(W[t-2]<<13))^(W[t-2]>>>10);W[t]=(W[t-16]+s0+W[t-7]+s1)>>>0;}
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for(let t=0;t<64;t++){const S1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7));const ch=(e&f)^(~e&g);const t1=(h+S1+ch+K[t]+W[t])>>>0;const S0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10));const maj=(a&b)^(a&c)^(b&c);const t2=(S0+maj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}
+    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;
+  }
+  const out=new Uint8Array(32),odv=new DataView(out.buffer);
+  odv.setUint32(0,h0,false);odv.setUint32(4,h1,false);odv.setUint32(8,h2,false);odv.setUint32(12,h3,false);odv.setUint32(16,h4,false);odv.setUint32(20,h5,false);odv.setUint32(24,h6,false);odv.setUint32(28,h7,false);
+  return out;
+}
+const rol=(x,n)=>((x<<n)|(x>>>(32-n)))>>>0;
+function ripemd160(msg){
+  const r1=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+  const r2=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+  const s1=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+  const s2=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+  const K1=[0,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E],K2=[0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0];
+  const f=(j,x,y,z)=>j<16?x^y^z:j<32?(x&y)|(~x&z):j<48?(x|~y)^z:j<64?(x&z)|(y&~z):x^(y|~z);
+  const f2=(j,x,y,z)=>j<16?x^(y|~z):j<32?(x&z)|(y&~z):j<48?(x|~y)^z:j<64?(x&y)|(~x&z):x^y^z;
+  const len=msg.length,bitLen=len*8,paddedLen=(len+9+63)&~63;
+  const buf=new Uint8Array(paddedLen);buf.set(msg);buf[len]=0x80;
+  const dv=new DataView(buf.buffer);
+  dv.setUint32(paddedLen-8,bitLen>>>0,true);
+  dv.setUint32(paddedLen-4,Math.floor(bitLen/0x100000000)>>>0,true);
+  let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;
+  for(let i=0;i<paddedLen;i+=64){
+    const X=[];for(let j=0;j<16;j++)X.push(dv.getUint32(i+j*4,true));
+    let a=h0,b=h1,c=h2,d=h3,e=h4,A=h0,B=h1,C=h2,D=h3,E=h4;
+    for(let j=0;j<80;j++){
+      const t=(rol((a+f(j,b,c,d)+X[r1[j]]+K1[j>>4])>>>0,s1[j])+e)>>>0;
+      a=e;e=d;d=rol(c,10);c=b;b=t;
+      const t2=(rol((A+f2(j,B,C,D)+X[r2[j]]+K2[j>>4])>>>0,s2[j])+E)>>>0;
+      A=E;E=D;D=rol(C,10);C=B;B=t2;
+    }
+    const t=(h1+c+D)>>>0;
+    h1=(h2+d+E)>>>0;h2=(h3+e+A)>>>0;h3=(h4+a+B)>>>0;h4=(h0+b+C)>>>0;h0=t;
+  }
+  const out=new Uint8Array(20),odv=new DataView(out.buffer);
+  odv.setUint32(0,h0,true);odv.setUint32(4,h1,true);odv.setUint32(8,h2,true);odv.setUint32(12,h3,true);odv.setUint32(16,h4,true);
+  return out;
+}
+const B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58(bytes){
+  const d=[0];
+  for(let i=0;i<bytes.length;i++){
+    let c=bytes[i];
+    for(let j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}
+    while(c){d.push(c%58);c=(c/58)|0;}
+  }
+  let out='';
+  for(let i=0;i<bytes.length&&bytes[i]===0;i++)out+='1';
+  for(let i=d.length-1;i>=0;i--)out+=B58[d[i]];
+  return out;
+}
+function buildPrefixFilter(prefix){
+  if(!prefix||prefix.length<3) return null;
+  const K = Math.max(1, Math.floor((prefix.length - 1) * 1.365) - 1);
+  if(K > 4) return null;
+  const total = 1 << (8 * K);
+  if(total > 1<<22) return null;
+  const set = new Set();
+  const probe = new Uint8Array(25);
+  for(let v=0; v<total; v++){
+    probe[0]=0;
+    for(let b=0;b<K;b++) probe[1+b] = (v >>> ((K-1-b)*8)) & 0xff;
+    for(let b=K;b<20;b++) probe[1+b]=0;
+    const a=sha256Sync(probe.slice(0,21));
+    const b=sha256Sync(a);
+    probe.set(b.slice(0,4),21);
+    const addr=b58(probe);
+    if(addr.startsWith(prefix)) set.add(v);
+  }
+  if(set.size===0 || set.size===total) return null;
+  return {K, set};
+}
+
+/* ===== WORKER CODE ===== */
+function workerCode(){
+return `
+const P=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const N=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const Gx=0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const Gy=0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+const mod=(a,m)=>{const r=a%m;return r>=0n?r:r+m;};
+function modInv(a,m){
+  let old_r=mod(a,m), r=m, old_s=1n, s=0n;
+  while(r!==0n){const q=old_r/r;const tr=old_r-q*r;old_r=r;r=tr;const ts=old_s-q*s;old_s=s;s=ts;}
+  if(old_r!==1n)throw new Error('no inverse');
+  return mod(old_s,m);
+}
+function add(A,B){if(!A)return B;if(!B)return A;const[x1,y1]=A,[x2,y2]=B;let l;if(x1===x2){if(mod(y1+y2,P)===0n)return null;l=mod(3n*x1*x1*modInv(2n*y1,P),P);}else l=mod((y2-y1)*modInv(mod(x2-x1,P),P),P);const x3=mod(l*l-x1-x2,P);return[x3,mod(l*(x1-x3)-y1,P)];}
+function mulG(k){k=mod(k,N);let R=null,Q=[Gx,Gy];while(k>0n){if(k&1n)R=add(R,Q);Q=add(Q,Q);k>>=1n;}return R;}
+function dbl(X,Y,Z){if(Z===0n)return[0n,0n,0n];const YY=mod(Y*Y,P),S=mod(4n*X*YY,P),M=mod(3n*X*X,P);return[mod(M*M-2n*S,P),mod(M*(S-mod(M*M-2n*S,P))-8n*YY*YY,P),mod(2n*Y*Z,P)];}
+function jacAdd(X1,Y1,Z1,x2,y2){if(Z1===0n)return[x2,y2,1n];const Z2=mod(Z1*Z1,P),U=mod(x2*Z2,P),S=mod(y2*Z1*Z2,P),H=mod(U-X1,P),R=mod(S-Y1,P);if(H===0n)return R===0n?dbl(X1,Y1,Z1):[0n,0n,0n];const HH=mod(H*H,P),HHH=mod(H*HH,P),V=mod(X1*HH,P);const X3=mod(R*R-HHH-2n*V,P);return[X3,mod(R*(V-X3)-Y1*HHH,P),mod(Z1*H,P)];}
+function batchAff(xs,ys,zs){const n=xs.length,p=new Array(n);let acc=1n;for(let i=0;i<n;i++){p[i]=acc;acc=mod(acc*zs[i],P);}let inv=modInv(acc,P);const ax=new Array(n),ay=new Array(n);for(let i=n-1;i>=0;i--){const zi=mod(inv*p[i],P);inv=mod(inv*zs[i],P);const z2=mod(zi*zi,P),z3=mod(z2*zi,P);ax[i]=mod(xs[i]*z2,P);ay[i]=mod(ys[i]*z3,P);}return[ax,ay];}
+
+const SHA_K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+const SHA_W=new Uint32Array(64);
+const SHA_BUF=new Uint8Array(128);
+const SHA_DV=new DataView(SHA_BUF.buffer);
+const SHA_OUT=new Uint8Array(32);
+const SHA_ODV=new DataView(SHA_OUT.buffer);
+function sha256Fast(msg){
+  const len=msg.length;
+  const paddedLen=(len+9+63)&~63;
+  for(let i=0;i<len;i++)SHA_BUF[i]=msg[i];
+  SHA_BUF[len]=0x80;
+  for(let i=len+1;i<paddedLen;i++)SHA_BUF[i]=0;
+  const bitLen=len*8;
+  SHA_DV.setUint32(paddedLen-8,Math.floor(bitLen/0x100000000),false);
+  SHA_DV.setUint32(paddedLen-4,bitLen>>>0,false);
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const K=SHA_K, W=SHA_W, dv=SHA_DV;
+  for(let i=0;i<paddedLen;i+=64){
+    for(let t=0;t<16;t++)W[t]=dv.getUint32(i+t*4,false);
+    for(let t=16;t<64;t++){const s0=((W[t-15]>>>7)|(W[t-15]<<25))^((W[t-15]>>>18)|(W[t-15]<<14))^(W[t-15]>>>3);const s1=((W[t-2]>>>17)|(W[t-2]<<15))^((W[t-2]>>>19)|(W[t-2]<<13))^(W[t-2]>>>10);W[t]=(W[t-16]+s0+W[t-7]+s1)>>>0;}
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for(let t=0;t<64;t++){const S1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7));const ch=(e&f)^(~e&g);const t1=(h+S1+ch+K[t]+W[t])>>>0;const S0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10));const maj=(a&b)^(a&c)^(b&c);const t2=(S0+maj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}
+    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;
+  }
+  SHA_ODV.setUint32(0,h0,false);SHA_ODV.setUint32(4,h1,false);SHA_ODV.setUint32(8,h2,false);SHA_ODV.setUint32(12,h3,false);SHA_ODV.setUint32(16,h4,false);SHA_ODV.setUint32(20,h5,false);SHA_ODV.setUint32(24,h6,false);SHA_ODV.setUint32(28,h7,false);
+  return SHA_OUT;
+}
+
+const RMD_r1=new Uint8Array([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13]);
+const RMD_r2=new Uint8Array([5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11]);
+const RMD_s1=new Uint8Array([11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6]);
+const RMD_s2=new Uint8Array([8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11]);
+const RMD_K1=new Uint32Array([0,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E]);
+const RMD_K2=new Uint32Array([0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0]);
+const RMD_BUF=new Uint8Array(128);
+const RMD_DV=new DataView(RMD_BUF.buffer);
+const RMD_OUT=new Uint8Array(20);
+const RMD_ODV=new DataView(RMD_OUT.buffer);
+const RMD_rol=(x,n)=>((x<<n)|(x>>>(32-n)))>>>0;
+function ripemd160Fast(msg){
+  const len=msg.length;
+  const paddedLen=(len+9+63)&~63;
+  for(let i=0;i<len;i++)RMD_BUF[i]=msg[i];
+  RMD_BUF[len]=0x80;
+  for(let i=len+1;i<paddedLen;i++)RMD_BUF[i]=0;
+  const bitLen=len*8;
+  RMD_DV.setUint32(paddedLen-8,bitLen>>>0,true);
+  RMD_DV.setUint32(paddedLen-4,Math.floor(bitLen/0x100000000)>>>0,true);
+  let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;
+  const r1=RMD_r1,r2=RMD_r2,s1=RMD_s1,s2=RMD_s2,K1=RMD_K1,K2=RMD_K2,dv=RMD_DV;
+  for(let i=0;i<paddedLen;i+=64){
+    let a=h0,b=h1,c=h2,d=h3,e=h4,A=h0,B=h1,C=h2,D=h3,E=h4;
+    for(let j=0;j<80;j++){
+      const X_r1=dv.getUint32(i+r1[j]*4,true);
+      const X_r2=dv.getUint32(i+r2[j]*4,true);
+      let fj,f2j;
+      if(j<16){fj=b^c^d;f2j=B^(C|~D);}
+      else if(j<32){fj=(b&c)|(~b&d);f2j=(B&D)|(C&~D);}
+      else if(j<48){fj=(b|~c)^d;f2j=(B|~C)^D;}
+      else if(j<64){fj=(b&d)|(c&~d);f2j=(B&C)|(~B&D);}
+      else {fj=b^(c|~d);f2j=B^C^D;}
+      const t=(RMD_rol((a+fj+X_r1+K1[j>>4])>>>0,s1[j])+e)>>>0;
+      a=e;e=d;d=RMD_rol(c,10);c=b;b=t;
+      const t2=(RMD_rol((A+f2j+X_r2+K2[j>>4])>>>0,s2[j])+E)>>>0;
+      A=E;E=D;D=RMD_rol(C,10);C=B;B=t2;
+    }
+    const t=(h1+c+D)>>>0;
+    h1=(h2+d+E)>>>0;h2=(h3+e+A)>>>0;h3=(h4+a+B)>>>0;h4=(h0+b+C)>>>0;h0=t;
+  }
+  RMD_ODV.setUint32(0,h0,true);RMD_ODV.setUint32(4,h1,true);RMD_ODV.setUint32(8,h2,true);RMD_ODV.setUint32(12,h3,true);RMD_ODV.setUint32(16,h4,true);
+  return RMD_OUT;
+}
+
+const B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58(bytes){const d=[0];for(let i=0;i<bytes.length;i++){let c=bytes[i];for(let j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}let out='';for(let i=0;i<bytes.length&&bytes[i]===0;i++)out+='1';for(let i=d.length-1;i>=0;i--)out+=B58[d[i]];return out;}
+function h160toAddr(h160){
+  const pay=new Uint8Array(21);pay[0]=0;pay.set(h160,1);
+  const a=sha256Fast(pay).slice();
+  const b=sha256Fast(a).slice();
+  const full=new Uint8Array(25);full.set(pay);full.set(b.slice(0,4),21);
+  return b58(full);
+}
+function bigToBytes32(x,out,off){for(let i=31;i>=0;i--){out[off+i]=Number(x&0xffn);x>>=8n;}}
+
+let running=false,prefix='',suffix='',id=0,lastRep=Date.now(),pend=0n;
+let filterK=0, filterMask=null;
+let blockQueue=[];
+let waitingForBlocks=false;
+let noMoreBlocks=false;
+const BATCH=256;
+const MIN_QUEUE=8;
+
+const PUB=new Uint8Array(33);
+
+function processBlockSync(bS,bE){
+  self.postMessage({type:'blockStart',start:bS.toString(16),end:bE.toString(16),worker:id});
+  const sp=mulG(bS); if(!sp)return false;
+  let X=sp[0],Y=sp[1],Z=1n,k=bS;
+  while(running && k<=bE){
+    const bX=new Array(BATCH),bY=new Array(BATCH),bZ=new Array(BATCH),bK=new Array(BATCH);
+    let n=0;
+    for(let i=0;i<BATCH;i++){
+      if(!running||k>bE)break;
+      bX[n]=X;bY[n]=Y;bZ[n]=Z;bK[n]=k;n++;
+      const nx=jacAdd(X,Y,Z,Gx,Gy);X=nx[0];Y=nx[1];Z=nx[2];k+=1n;
+    }
+    if(n===0)break;
+    bX.length=n;bY.length=n;bZ.length=n;bK.length=n;
+    const res=batchAff(bX,bY,bZ);
+    const aX=res[0],aY=res[1];
+    for(let i=0;i<n;i++){
+      if(!running)break;
+      PUB[0]=(aY[i]&1n)?0x03:0x02;
+      bigToBytes32(aX[i],PUB,1);
+      const s1=sha256Fast(PUB).slice();
+      const h=ripemd160Fast(s1).slice();
+      if(filterMask!==null){
+        let v=0;
+        for(let b=0;b<filterK;b++) v=(v<<8)|h[b];
+        if(!filterMask[v]) continue;
+      }
+      const addr=h160toAddr(h);
+      if(addr.startsWith(prefix)&&(!suffix||addr.endsWith(suffix))){
+        self.postMessage({type:'HIT',key:bK[i].toString(16),addr,worker:id});
+        running=false;return true;
+      }
+    }
+    pend+=BigInt(n);
+    const now=Date.now();
+    if(now-lastRep>500){self.postMessage({type:'STAT',count:pend.toString()});pend=0n;lastRep=now;}
+  }
+  if(pend>0n){self.postMessage({type:'STAT',count:pend.toString()});pend=0n;lastRep=Date.now();}
+  return false;
+}
+
+self.onmessage=(e)=>{
+  const d=e.data;
+  if(d.cmd==='stop'){running=false;return;}
+  if(d.cmd==='blocks'){
+    for(const b of d.blocks) blockQueue.push({s:BigInt('0x'+b.start),e:BigInt('0x'+b.end)});
+    waitingForBlocks=false;
+    if(running && !processing) runLoop();
+    return;
+  }
+  if(d.cmd==='noMoreBlocks'){noMoreBlocks=true;waitingForBlocks=false;if(running && !processing) runLoop();return;}
+  if(d.cmd==='run'){
+    prefix=d.prefix;suffix=d.suffix||'';id=d.id;running=true;lastRep=Date.now();
+    filterK=d.filterK||0;
+    if(d.filterMaskArr){filterMask=new Uint8Array(d.filterMaskArr);} else {filterMask=null;}
+    blockQueue=[];waitingForBlocks=false;noMoreBlocks=false;
+    if(d.firstBatch) for(const b of d.firstBatch) blockQueue.push({s:BigInt('0x'+b.start),e:BigInt('0x'+b.end)});
+    runLoop();
+  }
+};
+
+let processing=false;
+function runLoop(){
+  if(processing) return;
+  processing=true;
+  while(running){
+    if(blockQueue.length===0){
+      if(noMoreBlocks) break;
+      if(!waitingForBlocks){waitingForBlocks=true;self.postMessage({type:'needBlocks',worker:id,count:32});}
+      break;
+    }
+    if(!waitingForBlocks && !noMoreBlocks && blockQueue.length<MIN_QUEUE){
+      waitingForBlocks=true;
+      self.postMessage({type:'needBlocks',worker:id,count:32});
+    }
+    const blk=blockQueue.shift();
+    const found=processBlockSync(blk.s,blk.e);
+    self.postMessage({type:'blockDone'});
+    if(found){processing=false;return;}
+  }
+  processing=false;
+  if(running && blockQueue.length===0 && noMoreBlocks){
+    if(pend>0n){self.postMessage({type:'STAT',count:pend.toString()});pend=0n;}
+    self.postMessage({type:'workerDone',worker:id});
+  }
+}
+`;
+}
+
+/* ===== UI ===== */
+const $=id=>document.getElementById(id);
+const EMOJIS=['🍒','🍋','🍊','🔔','⭐','💎','🍀','7️⃣','🎰','🪙','🍇','🥝','🍉','🍎','🍏','🍑','🍌'];
+const STRIP_LEN=12;
+const LOG_MAX=30;
+
+let spinning=false,stopped=false,workers=[],lastCounts=new Map(),startTime=0,globalCount=0n,
+    totalBlocksBig=0n,blocksDone=0n,rangeSizeGlobal=1n,rateTimer=null,workerDoneSet=new Set(),
+    workerCountGlobal=0,rangeS=0n,rangeE=0n,blockSizeGlobal=10000n,permA=0n,permB=0n;
+let autoMode=false, foundKeys=[];
+let blockLog=[];
+let sessionActive=false, sessionBlocksTotal=0n, sessionProcessed=0n;
+let maxBlocksGlobal=1n, blocksIssued=0n, nextBlockIdx=0n;
+
+function randEmoji(){return EMOJIS[Math.floor(Math.random()*EMOJIS.length)];}
+const reels=[];
+for(let i=0;i<3;i++){
+  const strip=$('strip'+i);
+  for(let j=0;j<STRIP_LEN;j++){const s=document.createElement('span');s.textContent=randEmoji();strip.appendChild(s);}
+  reels.push({strip, offset:0, speed:0, active:false, animId:null});
+}
+function startReel(r, speed){
+  r.active=true; r.speed=speed;
+  if(r.animId) return;
+  const tick=()=>{if(!r.active) return;r.offset+=r.speed;if(r.offset>=110){r.offset-=110;const first=r.strip.firstChild;first.textContent=randEmoji();r.strip.appendChild(first);}r.strip.style.transform=`translateY(${-r.offset}px)`;r.animId=requestAnimationFrame(tick);};
+  r.animId=requestAnimationFrame(tick);
+}
+function stopReel(r, finalEmoji){
+  r.active=false;
+  if(r.animId){cancelAnimationFrame(r.animId); r.animId=null;}
+  r.strip.style.transition='transform 0.3s ease-out';
+  while(r.strip.firstChild) r.strip.removeChild(r.strip.firstChild);
+  for(let i=0;i<STRIP_LEN;i++){const s=document.createElement('span');s.textContent=finalEmoji;r.strip.appendChild(s);}
+  r.offset=0;r.strip.style.transform='translateY(0)';
+  setTimeout(()=>{r.strip.style.transition='';},320);
+}
+function resetReels(){
+  for(let i=0;i<3;i++){
+    const strip=$('strip'+i);
+    while(strip.firstChild) strip.removeChild(strip.firstChild);
+    for(let j=0;j<STRIP_LEN;j++){const s=document.createElement('span');s.textContent=randEmoji();strip.appendChild(s);}
+    reels[i].offset=0; reels[i].active=false;
+    if(reels[i].animId){cancelAnimationFrame(reels[i].animId); reels[i].animId=null;}
+    strip.style.transform='translateY(0)';$('reel'+i).className='reel';
+  }
+}
+function stopReelsRandomly(cls){
+  const picks=[];const pool=[...EMOJIS];
+  for(let i=0;i<3;i++){const idx=Math.floor(Math.random()*pool.length);picks.push(pool[idx]);pool.splice(idx,1);}
+  for(let i=0;i<3;i++){$('reel'+i).className='reel '+(cls||'stop');stopReel(reels[i],picks[i]);}
+}
+function setResult(lines,cls){$('result').innerHTML=lines.map(l=>'<div class="line">'+l+'</div>').join('');$('result').className='result '+(cls||'');}
+function renderFound(){
+  const box=$('found');
+  if(!foundKeys.length){box.style.display='none';return;}
+  box.style.display='block';
+  $('foundList').innerHTML=foundKeys.map((it,i)=>`<div class="item"><div><span class="n">#${i+1}</span><span class="k">0x${it.key}</span></div><div class="a">${it.addr}</div></div>`).join('');
+}
+
+let blockLogDirty=false;
+function renderBlockLog(){
+  const list=$('blockList');
+  if(!blockLog.length){list.innerHTML='<div class="empty">—</div>';return;}
+  list.innerHTML=blockLog.map((b,i)=>
+    `<div class="row${i<3?' fresh':''}"><span class="w">#${b.worker}</span><span class="r">0x${b.from}</span><span class="arrow">→</span><span class="r">0x${b.to}</span><span class="len">${b.len}</span></div>`
+  ).join('');
+}
+function pushBlockLog(from,to,worker,len){
+  blockLog.unshift({from,to,worker,len});
+  if(blockLog.length>LOG_MAX)blockLog.length=LOG_MAX;
+  if(!blockLogDirty){
+    blockLogDirty=true;
+    requestAnimationFrame(()=>{renderBlockLog();blockLogDirty=false;});
+  }
+}
+
+$('settingsToggle').addEventListener('click',()=>{$('settingsToggle').classList.toggle('open');$('settings').classList.toggle('open');});
+$('logToggle').addEventListener('click',()=>{$('logToggle').classList.toggle('open');$('logPanel').classList.toggle('open');});
+$('foundClear').addEventListener('click',()=>{foundKeys=[];renderFound();});
+$('modeBtn').addEventListener('click',()=>{autoMode=!autoMode;$('modeBtn').classList.toggle('auto-on',autoMode);sessionActive=false;sessionProcessed=0n;if(autoMode && !spinning) startSearch();});
+
+function validate(){
+  const prefix=$('prefix').value.trim();const suffix=$('suffix').value.trim();
+  if(!prefix){alert('Укажите префикс');return null;}
+  if(!prefix.startsWith('1')){alert('Префикс должен начинаться с "1"');return null;}
+  let s,e,bs=10000n;
+  try{s=BigInt('0x'+$('start').value.trim().replace(/^0x/i,''));e=BigInt('0x'+$('end').value.trim().replace(/^0x/i,''));}catch{alert('Некорректный диапазон');return null;}
+  if(e<s){alert('Конец < начала');return null;}
+  const bsStr=$('blockSize').value.trim();
+  if(bsStr){try{bs=BigInt(bsStr);if(bs<1n)bs=1n;}catch{}}
+  const size=e-s+1n;const blocks=(size+bs-1n)/bs;
+  return {prefix,suffix,s,e,rangeSize:size,blockSize:bs,blocksCount:blocks};
+}
+function issueBlocks(n){
+  const out=[];
+  for(let i=0;i<n;i++){
+    if(nextBlockIdx>=totalBlocksBig) break;
+    if(blocksIssued>=maxBlocksGlobal) break;
+    const idx=nextBlockIdx;nextBlockIdx+=1n;blocksIssued+=1n;
+    const p=mod(permA*idx+permB,totalBlocksBig);
+    const bS=rangeS+p*blockSizeGlobal;
+    let bE=bS+blockSizeGlobal-1n;
+    if(bE>rangeE)bE=rangeE;
+    out.push({start:bS.toString(16),end:bE.toString(16)});
+  }
+  return out;
+}
+function recalc(){globalCount=0n;for(const v of lastCounts.values())globalCount+=v;}
+function startRate(){
+  if(rateTimer)clearInterval(rateTimer);
+  rateTimer=setInterval(()=>{
+    if(stopped)return;
+    const el=Math.max(0.001,(Date.now()-startTime)/1000);
+    const r=Number(globalCount)/el/1000;
+    $('rate').textContent=r.toFixed(1);
+    $('count').textContent=Number(globalCount).toLocaleString('en-US');
+    const totalSession=Number(maxBlocksGlobal*blockSizeGlobal);
+    const done=Number(globalCount);
+    const pct=totalSession>0?Math.min(100,done/totalSession*100):0;
+    $('percent').textContent=(pct<0.001&&pct>0)?'<0.001%':pct.toFixed(3)+'%';
+    $('progress').style.width=pct+'%';
+    if(r>0&&totalSession>done){const rem=(totalSession-done)/(r*1000);$('eta').textContent=rem<60?rem.toFixed(0)+' с':rem<3600?(rem/60).toFixed(1)+' мин':rem<86400?(rem/3600).toFixed(1)+' ч':(rem/86400).toFixed(0)+' дн';}
+    else $('eta').textContent='—';
+  },250);
+}
+function stopRate(){if(rateTimer){clearInterval(rateTimer);rateTimer=null;}}
+function killWorkers(){workers.forEach(w=>{try{w.postMessage({cmd:'stop'});w.terminate();}catch(e){}});workers=[];lastCounts.clear();stopRate();}
+
+function startSearch(){
+  const p=validate(); if(!p)return;
+  stopWinSound();
+  spinning=true;stopped=false;workerDoneSet.clear();
+  globalCount=0n;rangeSizeGlobal=p.rangeSize;rangeS=p.s;rangeE=p.e;blockSizeGlobal=p.blockSize;
+  totalBlocksBig=p.blocksCount;startTime=Date.now();lastCounts.clear();
+
+  let filterK=0, filterMaskArr=null;
+  try{
+    const f=buildPrefixFilter(p.prefix);
+    if(f){
+      filterK=f.K;
+      const size=1<<(8*f.K);
+      const mask=new Uint8Array(size);
+      for(const v of f.set) mask[v]=1;
+      filterMaskArr=Array.from(mask);
+    }
+  }catch(e){}
+
+  if(autoMode){
+    maxBlocksGlobal=p.blocksCount;blocksIssued=0n;nextBlockIdx=0n;
+    sessionActive=false;sessionProcessed=0n;
+    if(totalBlocksBig>1n){permA=randomCoprime(totalBlocksBig);permB=randomBigInt(64)%totalBlocksBig;}else{permA=1n;permB=0n;}
+  } else {
+    if(!sessionActive){
+      sessionActive=true;sessionProcessed=0n;sessionBlocksTotal=p.blocksCount;nextBlockIdx=0n;
+      if(totalBlocksBig>1n){permA=randomCoprime(totalBlocksBig);permB=randomBigInt(64)%totalBlocksBig;}else{permA=1n;permB=0n;}
+    }
+    maxBlocksGlobal=1n;blocksIssued=0n;
+  }
+
+  $('spin').textContent='⏹ СТОП'; $('spin').classList.add('stop'); $('spin').disabled=false;
+  ['prefix','suffix','start','end','blockSize','threads'].forEach(id=>$(id).disabled=true);
+  resetReels();
+  for(let i=0;i<3;i++){$('reel'+i).className='reel spinning';startReel(reels[i], 8+i*3);}
+
+  const modeLabel = autoMode ? '🔁 Авто' : '🎲 Ручной';
+  const blockInfo = autoMode
+    ? '<span class="label">Режим:</span> весь диапазон ('+p.blocksCount.toString()+' блоков)'
+    : '<span class="label">Блок:</span> '+(sessionProcessed+1n).toString()+' / '+sessionBlocksTotal.toString()+' (по '+p.blockSize.toString()+' ключей)';
+  const filterInfo = filterK ? '<span class="label">Фильтр:</span> '+filterK+' байт h160' : '<span class="label">Фильтр:</span> нет';
+  setResult([modeLabel + ' — поиск...','<span class="label">Префикс:</span> '+p.prefix,filterInfo,blockInfo],'searching');
+
+  let nw=1;
+  try{nw=parseInt($('threads').value,10);if(!Number.isFinite(nw)||nw<1)nw=1;if(nw>32)nw=32;}catch{}
+  workerCountGlobal=nw;
+
+  const blob=new Blob([workerCode()],{type:'application/javascript'});
+  const url=URL.createObjectURL(blob);
+  for(let i=0;i<nw;i++){
+    const w=new Worker(url);
+    w.onmessage=e=>handleWorker(e,i);
+    w.onerror=err=>console.error('worker',err);
+    const first=issueBlocks(32);
+    w.postMessage({cmd:'run',prefix:p.prefix,suffix:p.suffix,id:i,filterK,filterMaskArr,firstBatch:first});
+    workers.push(w);lastCounts.set(i,0n);
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  startRate();
+}
+
+function stopSearch(){
+  if(!spinning)return;
+  stopWinSound();
+  stopped=true;spinning=false;
+  killWorkers();
+  $('spin').textContent='🎲 КРУТИТЬ'; $('spin').classList.remove('stop'); $('spin').disabled=false;
+  ['prefix','suffix','start','end','blockSize','threads'].forEach(id=>$(id).disabled=false);
+  stopReelsRandomly('stop');
+  sessionActive=false;sessionProcessed=0n;
+  setResult(['⏹ Остановлено.'],'stopped');
+}
+
+function playWin(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const now=ctx.currentTime;
+    [523.25,523.25,659.25,783.99,1046.5].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);o.type='square';o.frequency.value=f;
+      const t=now+i*0.1;g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.15);o.start(t);o.stop(t+0.2);
+    });
+    setTimeout(()=>{try{ctx.close();}catch{}},1500);
+  }catch{}
+}
+let winSoundTimer=null;
+function startWinSound(){stopWinSound();playWin();winSoundTimer=setInterval(playWin,1000);}
+function stopWinSound(){if(winSoundTimer){clearInterval(winSoundTimer);winSoundTimer=null;}}
+
+function finishWin(hit){
+  const e=randEmoji();
+  for(let i=0;i<3;i++){$('reel'+i).className='reel win';setTimeout(()=>stopReel(reels[i],e),i*150);}
+  startWinSound();
+  foundKeys.push({key:hit.key,addr:hit.addr});
+  renderFound();
+  sessionActive=false;sessionProcessed=0n;
+  setResult(['💎💎💎 <b>НАЙДЕНО!</b>','<span class="label">Ключ:</span> <span class="key">0x'+hit.key+'</span>','<span class="label">Адрес:</span> <span class="addr">'+hit.addr+'</span>'],'win');
+}
+
+function finishNotfound(){
+  stopWinSound();
+  stopped=true;spinning=false;
+  killWorkers();
+  $('spin').textContent='🎲 КРУТИТЬ';$('spin').classList.remove('stop');$('spin').disabled=false;
+  ['prefix','suffix','start','end','blockSize','threads'].forEach(id=>$(id).disabled=false);
+  stopReelsRandomly('stop');
+  if(autoMode){
+    setResult(['🏁 <b>Диапазон пройден (авто).</b>','<span class="label">Проверено ключей:</span> '+Number(globalCount).toLocaleString('en-US'),'<span class="label">Не найдено.</span>'],'stopped');
+    sessionActive=false;sessionProcessed=0n;
+  } else {
+    sessionProcessed += 1n;
+    const total = sessionBlocksTotal;
+    const finished = sessionProcessed >= total;
+    setResult([
+      finished ? '🏁 <b>Весь диапазон пройден.</b>' : '✅ <b>Блок пройден.</b>',
+      '<span class="label">Проверено ключей:</span> '+Number(globalCount).toLocaleString('en-US'),
+      finished ? '<span class="label">Не найдено. Сессия завершена.</span>' : '<span class="label">Блоков пройдено:</span> '+sessionProcessed.toString()+' из '+total.toString(),
+      finished ? '' : '<span class="label">Нажмите «Крутить» — следующий блок.</span>',
+    ].filter(Boolean),'stopped');
+    if(finished) sessionActive=false;
+  }
+}
+
+function handleWorker(e,idx){
+  if(stopped)return;
+  const d=e.data;
+  if(d.type==='STAT'){lastCounts.set(idx,(lastCounts.get(idx)||0n)+BigInt(d.count));recalc();}
+  else if(d.type==='blockStart'){
+    const bS=BigInt('0x'+d.start),bE=BigInt('0x'+d.end);
+    pushBlockLog(d.start,d.end,d.worker||idx,(bE-bS+1n).toString());
+  }
+  else if(d.type==='needBlocks'){
+    const w=workers[idx]; if(!w) return;
+    const blocks=issueBlocks(d.count||32);
+    if(blocks.length===0){w.postMessage({cmd:'noMoreBlocks'});}
+    else {w.postMessage({cmd:'blocks',blocks});}
+  }
+  else if(d.type==='blockDone'){blocksDone+=1n;}
+  else if(d.type==='workerDone'){
+    workerDoneSet.add(idx);
+    if(workerDoneSet.size>=workerCountGlobal&&!stopped)finishNotfound();
+  }
+  else if(d.type==='HIT'){
+    stopped=true;spinning=false;
+    killWorkers();
+    $('spin').textContent='🎲 КРУТИТЬ';$('spin').classList.remove('stop');$('spin').disabled=false;
+    ['prefix','suffix','start','end','blockSize','threads'].forEach(id=>$(id).disabled=false);
+    finishWin(d);
+  }
+}
+
+function gcd(a,b){a=a<0n?-a:a;b=b<0n?-b:b;while(b){const t=b;b=a%b;a=t;}return a;}
+function randomBigInt(bits){const n=Math.ceil(bits/8);const r=new Uint8Array(n);crypto.getRandomValues(r);let x=0n;for(const b of r)x=(x<<8n)|BigInt(b);return x;}
+function randomCoprime(n){if(n<=1n)return 1n;const h=n/2n;for(let i=0;i<200;i++){let a=h+(randomBigInt(64)%(n-h));if(a<=1n)a=2n;if(gcd(a,n)===1n)return a;}let a=h+1n;while(gcd(a,n)!==1n)a+=1n;return a;}
+
+function onSpin(){ if(spinning)stopSearch(); else startSearch(); }
+$('spin').addEventListener('click',onSpin);
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(spinning)stopSearch();}
+  else if(e.key==='Enter'){const tag=(e.target.tagName||'').toUpperCase();if(tag!=='INPUT')onSpin();}
+});
+
+resetReels();
+renderBlockLog();
+</script>
+</body>
+</html>
