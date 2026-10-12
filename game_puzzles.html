@@ -500,11 +500,11 @@ function b58(bytes) {
   return out;
 }
 function buildPrefixFilter(prefix) {
-  if (!prefix || prefix.length < 3) return null;
-  const K = Math.max(1, Math.floor((prefix.length - 1) * 1.365) - 1);
-  if (K > 3) return null;
-  const total = 1 << (8 * K);
-  if (total > (1 << 24)) return null;
+  if (!prefix || prefix.length < 8) return null;
+const K = Math.max(1, Math.floor((prefix.length - 1) * 1.365) - 1);
+if (K > 3) return null;
+const total = 1 << (8 * K);
+if (total > (1 << 22)) return null;   // максимум 4M итераций
   const set = new Set();
   const probe = new Uint8Array(25);
   for (let v = 0; v < total; v++) {
