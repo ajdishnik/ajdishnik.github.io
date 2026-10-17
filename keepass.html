@@ -99,15 +99,51 @@
         }
 
         /* --- Мобильная адаптация --- */
-        @media (max-width: 768px) {
-            .sidebar {
-                position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
-                transform: translateX(0); box-shadow: 2px 0 8px rgba(0,0,0,0.15);
-            }
-            .sidebar.collapsed { transform: translateX(-100%); width: 280px; }
-            .entries-pane.with-editor { display: none; }
-            .editor-pane { width: 100%; }
-        }
+/* --- Мобильная адаптация --- */
+@media (max-width: 768px) {
+    body { overflow: auto; height: auto; }
+    .app { height: auto; min-height: 100vh; display: block; }
+
+    .sidebar {
+        position: fixed; top: 0; left: 0; height: 100vh; width: 280px;
+        z-index: 100; transform: translateX(0);
+        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+    }
+    .sidebar.collapsed { transform: translateX(-100%); width: 280px; }
+
+    /* Затемнение фона при открытой панели */
+    .sidebar:not(.collapsed)::after {
+        content: ''; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.35); z-index: -1;
+    }
+
+    .main-area { width: 100%; min-height: 100vh; display: flex; flex-direction: column; }
+
+    #main-section { height: auto !important; min-height: 100vh; }
+
+    .main-content { flex-direction: column; overflow: visible; }
+
+    /* Список записей на всю ширину */
+    .entries-pane { flex: 1 1 auto; width: 100%; overflow-y: visible; padding: 0.75rem; }
+
+    /* Редактор — отдельный экран поверх */
+    .editor-pane {
+        position: fixed; inset: 0; z-index: 50;
+        background: var(--pico-background-color);
+        padding: 1rem; overflow-y: auto;
+        display: flex; flex-direction: column;
+    }
+    .editor-pane.hidden { display: none; }
+
+    /* Когда открыт редактор, список скрываем */
+    .editor-pane:not(.hidden) ~ .entries-pane { display: none; }
+
+    .main-header { flex-wrap: wrap; }
+    .main-header h3 { flex: 1 1 100%; order: -1; margin-bottom: 0.3rem; font-size: 1rem; }
+    .main-header button { flex: 0 0 auto; }
+
+    .actions button { width: 100%; }
+}
         .hidden { display: none !important; }
     </style>
 </head>
@@ -140,7 +176,7 @@
         </div>
 
         <!-- Основной интерфейс после открытия -->
-        <div id="main-section" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+        <div id="main-section" class="hidden" style="display: flex; flex-direction: column;">
             <div class="main-header">
                 <button class="hamburger" id="toggleSidebarBtn" title="Показать/скрыть панель">☰</button>
                 <h3 id="currentGroupName">Записи</h3>
