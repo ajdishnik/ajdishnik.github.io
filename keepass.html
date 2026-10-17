@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDBX Редактор v3</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        :root { --pico-font-size: 85%; }
+        .layout { display: grid; grid-template-columns: 260px 280px 1fr; gap: 1rem; height: 90vh; }
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; height: auto; } }
+        .panel { overflow-y: auto; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 0.75rem; }
+        .group-tree { list-style: none; padding-left: 0; margin: 0; }
+        .group-tree ul { list-style: none; padding-left: 1rem; margin: 0; }
+        .group-node {
+            cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 4px;
+            display: flex; justify-content: space-between; align-items: center; gap: 4px;
+        }
+        .group-node:hover { background: var(--pico-secondary-background); }
+        .group-node.active { background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+        .group-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .group-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+        .group-node:hover .group-actions { opacity: 1; }
+        .group-actions button {
+            padding: 0 3px; font-size: 0.7rem; line-height: 1.4;
+            background: transparent; border: 1px solid currentColor;
+            border-radius: 3px; color: inherit; cursor: pointer;
+        }
+        .group-actions button:hover { background: rgba(128,128,128,0.2); }
+        .entry-item { cursor: pointer; padding: 0.4rem 0.5rem; border-radius: 4px; }
+        .entry-item:hover { background: var(--pico-secondary-background); }
+        .entry-item.active { background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+        .meta-text { font-size: 0.75rem; opacity: 0.7; }
+        .hidden { display: none; }
+        .field-group { margin-bottom: 0.75rem; }
+        .field-group label { font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.15rem; }
+        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+        .actions button { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        .badge-count { font-size: 0.7rem; opacity: 0.6; margin-left: 4px; }
+    </style>
+</head>
+<body>
+<main class="container-fluid" style="padding: 1rem;">
+    <hgroup style="margin-bottom: 0.5rem;">
+        <h2 style="margin: 0;">KDBX Редактор</h2>
+        <p style="margin: 0;">Группы · Записи · Создание · Переименование · Удаление</p>
+    </hgroup>
+
+    <!-- Открытие -->
+    <section id="open-section">
+        <div class="grid">
+            <label>Файл <input type="file" id="fileInput" accept=".kdbx"></label>
+            <label>Мастер-пароль <input type="password" id="masterPassword"></label>
+        </div>
+        <button id="openBtn">Открыть</button>
+    </section>
+
+    <!-- Основной интерфейс -->
+    <section id="main-section" class="hidden">
+        <div class="layout">
+            <!-- Левая колонка: дерево групп -->
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <strong>Группы</strong>
+                    <button id="addGroupBtn" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;" title="Создать подгруппу в текущей группе">+</button>
+                </div>
+                <ul id="groupTree" class="group-tree"></ul>
+            </div>
+
+            <!-- Центральная колонка: записи -->
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <strong id="currentGroupName">Записи</strong>
+                    <button id="addEntryBtn" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">+ Запись</button>
+                </div>
+                <input type="search" id="searchInput" placeholder="    " style="margin-bottom: 0.5rem; padding: 0.3rem;">
+                <div id="entriesList" style="max-height: 70vh; overflow-y: auto;"></div>
+            </div>
+
+            <!-- Правая колонка: редактирование -->
+            <div class="panel" id="editPanel">
+                <div id="noSelection"><p class="meta-text">Выберите запись</p></div>
+                <div id="editForm" class="hidden">
+                    <h4 id="editHeading" style="margin-top: 0;">Редактирование</h4>
+                    <div class="field-group"><label>Заголовок</label><input id="fTitle"></div>
+                    <div class="field-group"><label>Логин</label><input id="fUsername"></div>
+                    <div class="field-group"><label>Пароль</label><input id="fPassword"></div>
+                    <div class="field-group"><label>URL</label><input id="fUrl"></div>
+                    <div class="field-group"><label>Заметки</label><textarea id="fNotes" rows="2"></textarea></div>
+                    <div class="field-group">
+                        <label>Группа (перемещение)</label>
+                        <select id="fGroupSelect"></select>
+                    </div>
+                    <div class="actions">
+                        <button id="saveBtn">Сохранить</button>
+                        <button id="deleteEntryBtn" class="secondary">Удалить запись</button>
+                        <button id="downloadBtn" class="contrast">Скачать .kdbx</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script type="module">
+    import init, { KdbxDatabase } from 'https://esm.sh/kdbx-wasm@0.3.1';
+    await init();
+
+    let db = null, currentFile = null, selectedUuid = null, currentGroupUuid = null;
+    const $ = id => document.getElementById(id);
+
+    // ---------- Открытие ----------
+    $('openBtn').addEventListener('click', async () => {
+        const file = $('fileInput').files[0];
+        const pw = $('masterPassword').value;
+        if (!file || !pw) return alert('Выберите файл и введите пароль');
+        try {
+            const buf = await file.arrayBuffer();
+            db = new KdbxDatabase(new Uint8Array(buf), pw);
+            currentFile = file;
+            currentGroupUuid = db.rootGroupUuid;
+            $('open-section').classList.add('hidden');
+            $('main-section').classList.remove('hidden');
+            renderGroups();
+            renderEntries();
+            populateGroupSelect();
+            updateCurrentGroupName();
+        } catch (e) { alert('Ошибка открытия: ' + e.message); }
+    });
+
+    // ---------- Вспомогательные ----------
+    function updateCurrentGroupName() {
+        const g = db.getGroup(currentGroupUuid);
+        $('currentGroupName').textContent = g ? g.name : 'Записи';
+    }
+
+    // ---------- Дерево групп ----------
+    function renderGroups() {
+        const groups = db.getGroups();
+        const childrenMap = new Map();
+        groups.forEach(g => {
+            const pid = g.parentId || '__root__';
+            if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+            childrenMap.get(pid).push(g);
+        });
+
+        const tree = $('groupTree');
+        tree.innerHTML = '';
+
+        function buildNode(group, container) {
+            const li = document.createElement('li');
+            const div = document.createElement('div');
+            div.className = 'group-node' + (group.uuid === currentGroupUuid ? ' active' : '');
+
+            // Название + счётчик записей
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'group-name';
+            nameSpan.textContent = group.name;
+            div.appendChild(nameSpan);
+
+            // Кнопки действий (появляются при наведении)
+            const actions = document.createElement('span');
+            actions.className = 'group-actions';
+
+            // Переименовать
+            const renameBtn = document.createElement('button');
+            renameBtn.textContent = '✎';
+            renameBtn.title = 'Переименовать';
+            renameBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const newName = prompt('Новое имя группы:', group.name);
+                if (newName && newName.trim() && newName !== group.name) {
+                    try {
+                        db.renameGroup(group.uuid, newName.trim());
+                        renderGroups();
+                        updateCurrentGroupName();
+                        populateGroupSelect();
+                    } catch (err) { alert('Ошибка: ' + err.message); }
+                }
+            });
+            actions.appendChild(renameBtn);
+
+            // Удалить (кроме корневой)
+            if (group.uuid !== db.rootGroupUuid) {
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '✕';
+                delBtn.title = 'Удалить группу';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    handleDeleteGroup(group.uuid, group.name);
+                });
+                actions.appendChild(delBtn);
+            }
+
+            div.appendChild(actions);
+
+            // Клик по группе — выбор
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentGroupUuid = group.uuid;
+                selectedUuid = null;
+                renderGroups();
+                renderEntries();
+                updateCurrentGroupName();
+            });
+
+            li.appendChild(div);
+
+            // Дочерние группы
+            const children = childrenMap.get(group.uuid) || [];
+            if (children.length) {
+                const ul = document.createElement('ul');
+                children.forEach(c => buildNode(c, ul));
+                li.appendChild(ul);
+            }
+            container.appendChild(li);
+        }
+
+        // Корневая группа
+        const rootGroup = db.getGroup(db.rootGroupUuid);
+        if (rootGroup) {
+            const rootLi = document.createElement('li');
+            const rootDiv = document.createElement('div');
+            rootDiv.className = 'group-node' + (rootGroup.uuid === currentGroupUuid ? ' active' : '');
+            rootDiv.innerHTML = `<strong class="group-name">${escapeHtml(rootGroup.name)}</strong>`;
+            rootDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentGroupUuid = rootGroup.uuid;
+                selectedUuid = null;
+                renderGroups();
+                renderEntries();
+                updateCurrentGroupName();
+            });
+            rootLi.appendChild(rootDiv);
+
+            const rootChildren = childrenMap.get(rootGroup.uuid) || [];
+            if (rootChildren.length) {
+                const ul = document.createElement('ul');
+                rootChildren.forEach(c => buildNode(c, ul));
+                rootLi.appendChild(ul);
+            }
+            tree.appendChild(rootLi);
+        }
+    }
+
+    // ---------- Удаление группы ----------
+    function handleDeleteGroup(uuid, name) {
+        // Проверка на корневую группу
+        if (uuid === db.rootGroupUuid) {
+            alert('Нельзя удалить корневую группу.');
+            return;
+        }
+
+        // Рекурсивная проверка: группа должна быть полностью пуста (нет записей и подгрупп)
+        const groups = db.getGroups();
+        const childGroups = groups.filter(g => g.parentId === uuid);
+        const entries = db.getEntriesByGroup(uuid);
+
+        if (entries.length > 0 || childGroups.length > 0) {
+            let msg = `Группа «${name}» не пуста.`;
+            if (entries.length) msg += `\nЗаписей: ${entries.length}`;
+            if (childGroups.length) msg += `\nПодгрупп: ${childGroups.length}`;
+            msg += '\n\nСначала удалите или переместите всё содержимое.';
+            alert(msg);
+            return;
+        }
+
+        if (!confirm(`Удалить группу «${name}»?`)) return;
+
+        try {
+            db.deleteGroup(uuid);
+
+            // Если удалили текущую группу — переключаемся на родительскую или корень
+            if (currentGroupUuid === uuid) {
+                const parent = groups.find(g => g.uuid === uuid)?.parentId || db.rootGroupUuid;
+                currentGroupUuid = parent;
+                selectedUuid = null;
+                $('editForm').classList.add('hidden');
+                $('noSelection').classList.remove('hidden');
+            }
+
+            renderGroups();
+            renderEntries();
+            populateGroupSelect();
+            updateCurrentGroupName();
+        } catch (e) {
+            alert('Ошибка удаления: ' + e.message);
+        }
+    }
+
+    // ---------- Создание группы ----------
+    $('addGroupBtn').addEventListener('click', () => {
+        if (!db) return;
+        const name = prompt('Имя новой группы:');
+        if (!name || !name.trim()) return;
+        try {
+            db.createGroup(name.trim(), currentGroupUuid);
+            renderGroups();
+            populateGroupSelect();
+        } catch (e) { alert('Ошибка: ' + e.message); }
+    });
+
+    // ---------- Записи ----------
+    function renderEntries() {
+        const list = $('entriesList');
+        list.innerHTML = '';
+        let entries;
+        const q = $('searchInput').value.trim();
+        if (q) {
+            entries = db.searchEntries(q, true);
+        } else {
+            entries = db.getEntriesByGroup(currentGroupUuid, true);
+        }
+        if (!entries.length) {
+            list.innerHTML = '<p class="meta-text">Нет записей</p>';
+            return;
+        }
+        entries.forEach(entry => {
+            const div = document.createElement('div');
+            div.className = 'entry-item' + (entry.uuid === selectedUuid ? ' active' : '');
+            div.innerHTML = `<strong>${escapeHtml(entry.title || 'Без названия')}</strong>
+                <div class="meta-text">${escapeHtml(entry.username || '')}</div>`;
+            div.addEventListener('click', () => selectEntry(entry.uuid));
+            list.appendChild(div);
+        });
+    }
+
+    $('searchInput').addEventListener('input', () => {
+        if (db) renderEntries();
+    });
+
+    function selectEntry(uuid) {
+        selectedUuid = uuid;
+        renderEntries();
+        const entry = db.getEntry(uuid, true);
+        if (!entry) return;
+        $('noSelection').classList.add('hidden');
+        $('editForm').classList.remove('hidden');
+        $('editHeading').textContent = entry.title || 'Запись';
+        $('fTitle').value = entry.title || '';
+        $('fUsername').value = entry.username || '';
+        $('fPassword').value = entry.password || '';
+        $('fUrl').value = entry.url || '';
+        $('fNotes').value = entry.notes || '';
+        populateGroupSelect(entry.groupUuid);
+    }
+
+    // ---------- Заполнение select групп ----------
+    function populateGroupSelect(selectedGroupUuid) {
+        const sel = $('fGroupSelect');
+        sel.innerHTML = '';
+        const groups = db.getGroups();
+        groups.forEach(g => {
+            const opt = document.createElement('option');
+            opt.value = g.uuid;
+            opt.textContent = g.name;
+            if (g.uuid === (selectedGroupUuid || currentGroupUuid)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+// ---------- Создание записи ----------
+$('addEntryBtn').addEventListener('click', () => {
+    if (!db) return;
+
+    // Формируем заголовок: "# 2 авг. 2026 г., 15:15"
+    const now = new Date();
+    const formatted = new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(now);
+    const defaultTitle = `# ${formatted}`;
+
+    // Даём возможность отредактировать название, но по умолчанию оно уже заполнено
+    const title = prompt('Название записи:', defaultTitle);
+    if (!title || !title.trim()) return;
+
+    try {
+        const uuid = db.createEntry(currentGroupUuid, title.trim(), '');
+        selectedUuid = uuid;
+        renderEntries();
+        renderGroups();
+        selectEntry(uuid);
+    } catch (e) { alert(e.message); }
+});
+
+    // ---------- Сохранение ----------
+    $('saveBtn').addEventListener('click', () => {
+        if (!selectedUuid) return;
+        try {
+            db.setEntryTitle(selectedUuid, $('fTitle').value.trim() || undefined);
+            db.setEntryUsername(selectedUuid, $('fUsername').value.trim() || undefined);
+            db.setEntryPassword(selectedUuid, $('fPassword').value);
+            db.setEntryUrl(selectedUuid, $('fUrl').value.trim() || undefined);
+            db.setEntryNotes(selectedUuid, $('fNotes').value.trim() || undefined);
+            const targetGroup = $('fGroupSelect').value;
+            if (targetGroup !== db.getEntry(selectedUuid).groupUuid) {
+                db.moveEntry(selectedUuid, targetGroup);
+                currentGroupUuid = targetGroup;
+            }
+            renderGroups();
+            renderEntries();
+            updateCurrentGroupName();
+            alert('Применено в памяти. Скачайте файл для сохранения.');
+        } catch (e) { alert(e.message); }
+    });
+
+    // ---------- Удаление записи ----------
+    $('deleteEntryBtn').addEventListener('click', () => {
+        if (!selectedUuid || !confirm('Удалить запись?')) return;
+        try {
+            db.deleteEntry(selectedUuid);
+            selectedUuid = null;
+            renderEntries();
+            renderGroups();
+            $('editForm').classList.add('hidden');
+            $('noSelection').classList.remove('hidden');
+        } catch (e) { alert(e.message); }
+    });
+
+    // ---------- Скачивание ----------
+    $('downloadBtn').addEventListener('click', () => {
+        if (!db || !currentFile) return;
+        try {
+            const bytes = db.toBytes($('masterPassword').value);
+            const blob = new Blob([bytes], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFile.name.replace('.kdbx', '_edited.kdbx');
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) { alert(e.message); }
+    });
+
+    // ---------- Утилита ----------
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+</script>
+</body>
+</html>
