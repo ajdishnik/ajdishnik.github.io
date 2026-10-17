@@ -3,21 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KDBX Редактор v3</title>
+    <title>KDBX Редактор v4</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
         :root { --pico-font-size: 85%; }
-        .layout { display: grid; grid-template-columns: 260px 280px 1fr; gap: 1rem; height: 90vh; }
-        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; height: auto; } }
-        .panel { overflow-y: auto; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 0.75rem; }
+        * { box-sizing: border-box; }
+        body { margin: 0; overflow: hidden; height: 100vh; }
+        .app { display: flex; height: 100vh; }
+
+        /* --- Боковая панель --- */
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--pico-muted-border-color);
+            background: var(--pico-card-background-color);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.25s ease, width 0.25s ease;
+            overflow: hidden;
+        }
+        .sidebar.collapsed { width: 0; border-right: none; }
+        .sidebar-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.75rem; border-bottom: 1px solid var(--pico-muted-border-color);
+            flex-shrink: 0;
+        }
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 0.5rem; }
+
+        /* --- Дерево --- */
         .group-tree { list-style: none; padding-left: 0; margin: 0; }
         .group-tree ul { list-style: none; padding-left: 1rem; margin: 0; }
         .group-node {
-            cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 4px;
-            display: flex; justify-content: space-between; align-items: center; gap: 4px;
+            cursor: pointer; padding: 0.35rem 0.5rem; border-radius: 4px;
+            display: flex; align-items: center; gap: 4px;
+            font-size: 0.85rem; user-select: none;
         }
         .group-node:hover { background: var(--pico-secondary-background); }
         .group-node.active { background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+        .group-toggle {
+            width: 16px; height: 16px; flex-shrink: 0; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 0.7rem; opacity: 0.6; cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .group-toggle.expanded { transform: rotate(90deg); }
+        .group-toggle.empty { visibility: hidden; }
         .group-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .group-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
         .group-node:hover .group-actions { opacity: 1; }
@@ -27,80 +57,131 @@
             border-radius: 3px; color: inherit; cursor: pointer;
         }
         .group-actions button:hover { background: rgba(128,128,128,0.2); }
-        .entry-item { cursor: pointer; padding: 0.4rem 0.5rem; border-radius: 4px; }
+
+        /* --- Основная область --- */
+        .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .main-header {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.75rem; border-bottom: 1px solid var(--pico-muted-border-color);
+            flex-shrink: 0;
+        }
+        .main-header h3 { margin: 0; flex: 1; font-size: 1rem; }
+        .main-content { flex: 1; display: flex; overflow: hidden; }
+        .entries-pane { flex: 1; overflow-y: auto; padding: 0.75rem; min-width: 0; }
+        .entries-pane.with-editor { flex: 0 0 320px; border-right: 1px solid var(--pico-muted-border-color); }
+
+        /* --- Записи --- */
+        .entry-item {
+            cursor: pointer; padding: 0.5rem 0.6rem; border-radius: 6px;
+            margin-bottom: 2px;
+        }
         .entry-item:hover { background: var(--pico-secondary-background); }
         .entry-item.active { background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+        .entry-item strong { font-size: 0.9rem; display: block; }
         .meta-text { font-size: 0.75rem; opacity: 0.7; }
-        .hidden { display: none; }
+
+        /* --- Редактор --- */
+        .editor-pane {
+            flex: 1; overflow-y: auto; padding: 1rem; min-width: 0;
+            display: flex; flex-direction: column;
+        }
+        .editor-pane.hidden { display: none; }
         .field-group { margin-bottom: 0.75rem; }
         .field-group label { font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.15rem; }
-        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--pico-muted-border-color); }
         .actions button { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
-        .badge-count { font-size: 0.7rem; opacity: 0.6; margin-left: 4px; }
+
+        /* --- Кнопка гамбургер --- */
+        .hamburger {
+            background: transparent; border: none; cursor: pointer;
+            padding: 0.3rem; font-size: 1.2rem; color: inherit;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* --- Мобильная адаптация --- */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
+                transform: translateX(0); box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+            }
+            .sidebar.collapsed { transform: translateX(-100%); width: 280px; }
+            .entries-pane.with-editor { display: none; }
+            .editor-pane { width: 100%; }
+        }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-<main class="container-fluid" style="padding: 1rem;">
-    <hgroup style="margin-bottom: 0.5rem;">
-        <h2 style="margin: 0;">KDBX Редактор</h2>
-        <p style="margin: 0;">Группы · Записи · Создание · Переименование · Удаление</p>
-    </hgroup>
+<div class="app">
+    <!-- Боковая панель с деревом групп -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <strong>Группы</strong>
+            <div style="display: flex; gap: 0.3rem;">
+                <button id="addGroupBtn" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;" title="Создать подгруппу">+</button>
+                <button class="hamburger" id="closeSidebarBtn" title="Скрыть панель">◀</button>
+            </div>
+        </div>
+        <div class="sidebar-content">
+            <ul id="groupTree" class="group-tree"></ul>
+        </div>
+    </aside>
 
-    <!-- Открытие -->
-    <section id="open-section">
-        <div class="grid">
+    <!-- Основная область -->
+    <div class="main-area">
+        <!-- Экран открытия базы -->
+        <div id="open-section" style="padding: 2rem; max-width: 500px; margin: auto; width: 100%;">
+            <h2>KDBX Редактор</h2>
             <label>Файл <input type="file" id="fileInput" accept=".kdbx"></label>
             <label>Мастер-пароль <input type="password" id="masterPassword"></label>
+            <button id="openBtn">Открыть базу</button>
         </div>
-        <button id="openBtn">Открыть</button>
-    </section>
 
-    <!-- Основной интерфейс -->
-    <section id="main-section" class="hidden">
-        <div class="layout">
-            <!-- Левая колонка: дерево групп -->
-            <div class="panel">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <strong>Группы</strong>
-                    <button id="addGroupBtn" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;" title="Создать подгруппу в текущей группе">+</button>
-                </div>
-                <ul id="groupTree" class="group-tree"></ul>
+        <!-- Основной интерфейс после открытия -->
+        <div id="main-section" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="main-header">
+                <button class="hamburger" id="toggleSidebarBtn" title="Показать/скрыть панель">☰</button>
+                <h3 id="currentGroupName">Записи</h3>
+                <button id="addEntryBtn" style="padding: 0.3rem 0.7rem; font-size: 0.85rem;">+ Запись</button>
+                <button id="downloadBtn" class="contrast" style="padding: 0.3rem 0.7rem; font-size: 0.85rem;">Скачать .kdbx</button>
             </div>
 
-            <!-- Центральная колонка: записи -->
-            <div class="panel">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <strong id="currentGroupName">Записи</strong>
-                    <button id="addEntryBtn" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">+ Запись</button>
+            <div class="main-content">
+                <!-- Список записей -->
+                <div class="entries-pane" id="entriesPane">
+                    <input type="search" id="searchInput" placeholder="Поиск..." style="margin-bottom: 0.75rem; padding: 0.3rem; font-size: 0.85rem;">
+                    <div id="entriesList"></div>
                 </div>
-                <input type="search" id="searchInput" placeholder="    " style="margin-bottom: 0.5rem; padding: 0.3rem;">
-                <div id="entriesList" style="max-height: 70vh; overflow-y: auto;"></div>
-            </div>
 
-            <!-- Правая колонка: редактирование -->
-            <div class="panel" id="editPanel">
-                <div id="noSelection"><p class="meta-text">Выберите запись</p></div>
-                <div id="editForm" class="hidden">
-                    <h4 id="editHeading" style="margin-top: 0;">Редактирование</h4>
-                    <div class="field-group"><label>Заголовок</label><input id="fTitle"></div>
-                    <div class="field-group"><label>Логин</label><input id="fUsername"></div>
-                    <div class="field-group"><label>Пароль</label><input id="fPassword"></div>
-                    <div class="field-group"><label>URL</label><input id="fUrl"></div>
-                    <div class="field-group"><label>Заметки</label><textarea id="fNotes" rows="2"></textarea></div>
-                    <div class="field-group">
-                        <label>Группа (перемещение)</label>
-                        <select id="fGroupSelect"></select>
+                <!-- Редактор записи -->
+                <div class="editor-pane hidden" id="editorPane">
+                    <div id="noSelection" style="text-align: center; padding: 2rem; opacity: 0.6;">
+                        <p>Выберите запись из списка</p>
                     </div>
-                    <div class="actions">
-                        <button id="saveBtn">Сохранить</button>
-                        <button id="deleteEntryBtn" class="secondary">Удалить запись</button>
-                        <button id="downloadBtn" class="contrast">Скачать .kdbx</button>
+                    <div id="editForm" class="hidden">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h4 id="editHeading" style="margin: 0;">Редактирование</h4>
+                            <button id="closeEditorBtn" style="background: transparent; border: none; cursor: pointer; font-size: 1.2rem; padding: 0 0.3rem;" title="Закрыть">✕</button>
+                        </div>
+                        <div class="field-group"><label>Заголовок</label><input id="fTitle"></div>
+                        <div class="field-group"><label>Логин</label><input id="fUsername"></div>
+                        <div class="field-group"><label>Пароль</label><input id="fPassword"></div>
+                        <div class="field-group"><label>URL</label><input id="fUrl"></div>
+                        <div class="field-group"><label>Заметки</label><textarea id="fNotes" rows="3"></textarea></div>
+                        <div class="field-group">
+                            <label>Группа (перемещение)</label>
+                            <select id="fGroupSelect"></select>
+                        </div>
+                        <div class="actions">
+                            <button id="saveBtn">Сохранить</button>
+                            <button id="deleteEntryBtn" class="secondary">Удалить запись</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
-</main>
+    </div>
+</div>
 
 <script type="module">
     import init, { KdbxDatabase } from 'https://esm.sh/kdbx-wasm@0.3.1';
@@ -108,6 +189,11 @@
 
     let db = null, currentFile = null, selectedUuid = null, currentGroupUuid = null;
     const $ = id => document.getElementById(id);
+
+    // ---------- Управление боковой панелью ----------
+    const sidebar = $('sidebar');
+    $('toggleSidebarBtn').addEventListener('click', () => sidebar.classList.toggle('collapsed'));
+    $('closeSidebarBtn').addEventListener('click', () => sidebar.classList.add('collapsed'));
 
     // ---------- Открытие ----------
     $('openBtn').addEventListener('click', async () => {
@@ -121,6 +207,7 @@
             currentGroupUuid = db.rootGroupUuid;
             $('open-section').classList.add('hidden');
             $('main-section').classList.remove('hidden');
+            $('main-section').style.display = 'flex';
             renderGroups();
             renderEntries();
             populateGroupSelect();
@@ -135,6 +222,9 @@
     }
 
     // ---------- Дерево групп ----------
+    // Храним состояние раскрытия групп в памяти
+    const expandedGroups = new Set();
+
     function renderGroups() {
         const groups = db.getGroups();
         const childrenMap = new Map();
@@ -147,22 +237,44 @@
         const tree = $('groupTree');
         tree.innerHTML = '';
 
+        // Автоматически раскрываем родителей текущей группы
+        let parent = groups.find(g => g.uuid === currentGroupUuid);
+        while (parent && parent.parentId) {
+            expandedGroups.add(parent.parentId);
+            parent = groups.find(g => g.uuid === parent.parentId);
+        }
+        // Корень всегда раскрыт
+        if (db.rootGroupUuid) expandedGroups.add(db.rootGroupUuid);
+
         function buildNode(group, container) {
             const li = document.createElement('li');
             const div = document.createElement('div');
             div.className = 'group-node' + (group.uuid === currentGroupUuid ? ' active' : '');
 
-            // Название + счётчик записей
+            // Кнопка-треугольник для раскрытия
+            const children = childrenMap.get(group.uuid) || [];
+            const toggle = document.createElement('span');
+            toggle.className = 'group-toggle' + (children.length ? '' : ' empty');
+            if (expandedGroups.has(group.uuid)) toggle.classList.add('expanded');
+            toggle.textContent = '▶';
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (expandedGroups.has(group.uuid)) expandedGroups.delete(group.uuid);
+                else expandedGroups.add(group.uuid);
+                renderGroups();
+            });
+            div.appendChild(toggle);
+
+            // Название
             const nameSpan = document.createElement('span');
             nameSpan.className = 'group-name';
             nameSpan.textContent = group.name;
             div.appendChild(nameSpan);
 
-            // Кнопки действий (появляются при наведении)
+            // Кнопки действий
             const actions = document.createElement('span');
             actions.className = 'group-actions';
 
-            // Переименовать
             const renameBtn = document.createElement('button');
             renameBtn.textContent = '✎';
             renameBtn.title = 'Переименовать';
@@ -180,7 +292,6 @@
             });
             actions.appendChild(renameBtn);
 
-            // Удалить (кроме корневой)
             if (group.uuid !== db.rootGroupUuid) {
                 const delBtn = document.createElement('button');
                 delBtn.textContent = '✕';
@@ -191,24 +302,25 @@
                 });
                 actions.appendChild(delBtn);
             }
-
             div.appendChild(actions);
 
-            // Клик по группе — выбор
+            // Клик по группе
             div.addEventListener('click', (e) => {
                 e.stopPropagation();
                 currentGroupUuid = group.uuid;
                 selectedUuid = null;
+                closeEditor();
                 renderGroups();
                 renderEntries();
                 updateCurrentGroupName();
+                // На мобильных скрываем сайдбар после выбора
+                if (window.innerWidth <= 768) sidebar.classList.add('collapsed');
             });
 
             li.appendChild(div);
 
-            // Дочерние группы
-            const children = childrenMap.get(group.uuid) || [];
-            if (children.length) {
+            // Дочерние группы — показываем только если раскрыто
+            if (children.length && expandedGroups.has(group.uuid)) {
                 const ul = document.createElement('ul');
                 children.forEach(c => buildNode(c, ul));
                 li.appendChild(ul);
@@ -227,14 +339,16 @@
                 e.stopPropagation();
                 currentGroupUuid = rootGroup.uuid;
                 selectedUuid = null;
+                closeEditor();
                 renderGroups();
                 renderEntries();
                 updateCurrentGroupName();
+                if (window.innerWidth <= 768) sidebar.classList.add('collapsed');
             });
             rootLi.appendChild(rootDiv);
 
             const rootChildren = childrenMap.get(rootGroup.uuid) || [];
-            if (rootChildren.length) {
+            if (rootChildren.length && expandedGroups.has(rootGroup.uuid)) {
                 const ul = document.createElement('ul');
                 rootChildren.forEach(c => buildNode(c, ul));
                 rootLi.appendChild(ul);
@@ -245,47 +359,28 @@
 
     // ---------- Удаление группы ----------
     function handleDeleteGroup(uuid, name) {
-        // Проверка на корневую группу
-        if (uuid === db.rootGroupUuid) {
-            alert('Нельзя удалить корневую группу.');
-            return;
-        }
-
-        // Рекурсивная проверка: группа должна быть полностью пуста (нет записей и подгрупп)
+        if (uuid === db.rootGroupUuid) { alert('Нельзя удалить корневую группу.'); return; }
         const groups = db.getGroups();
         const childGroups = groups.filter(g => g.parentId === uuid);
         const entries = db.getEntriesByGroup(uuid);
-
         if (entries.length > 0 || childGroups.length > 0) {
             let msg = `Группа «${name}» не пуста.`;
             if (entries.length) msg += `\nЗаписей: ${entries.length}`;
             if (childGroups.length) msg += `\nПодгрупп: ${childGroups.length}`;
             msg += '\n\nСначала удалите или переместите всё содержимое.';
-            alert(msg);
-            return;
+            alert(msg); return;
         }
-
         if (!confirm(`Удалить группу «${name}»?`)) return;
-
         try {
             db.deleteGroup(uuid);
-
-            // Если удалили текущую группу — переключаемся на родительскую или корень
             if (currentGroupUuid === uuid) {
                 const parent = groups.find(g => g.uuid === uuid)?.parentId || db.rootGroupUuid;
                 currentGroupUuid = parent;
                 selectedUuid = null;
-                $('editForm').classList.add('hidden');
-                $('noSelection').classList.remove('hidden');
+                closeEditor();
             }
-
-            renderGroups();
-            renderEntries();
-            populateGroupSelect();
-            updateCurrentGroupName();
-        } catch (e) {
-            alert('Ошибка удаления: ' + e.message);
-        }
+            renderGroups(); renderEntries(); populateGroupSelect(); updateCurrentGroupName();
+        } catch (e) { alert('Ошибка удаления: ' + e.message); }
     }
 
     // ---------- Создание группы ----------
@@ -295,8 +390,8 @@
         if (!name || !name.trim()) return;
         try {
             db.createGroup(name.trim(), currentGroupUuid);
-            renderGroups();
-            populateGroupSelect();
+            expandedGroups.add(currentGroupUuid);
+            renderGroups(); populateGroupSelect();
         } catch (e) { alert('Ошибка: ' + e.message); }
     });
 
@@ -306,13 +401,10 @@
         list.innerHTML = '';
         let entries;
         const q = $('searchInput').value.trim();
-        if (q) {
-            entries = db.searchEntries(q, true);
-        } else {
-            entries = db.getEntriesByGroup(currentGroupUuid, true);
-        }
+        if (q) entries = db.searchEntries(q, true);
+        else entries = db.getEntriesByGroup(currentGroupUuid, true);
         if (!entries.length) {
-            list.innerHTML = '<p class="meta-text">Нет записей</p>';
+            list.innerHTML = '<p class="meta-text" style="padding:1rem;text-align:center;">Нет записей</p>';
             return;
         }
         entries.forEach(entry => {
@@ -325,18 +417,22 @@
         });
     }
 
-    $('searchInput').addEventListener('input', () => {
-        if (db) renderEntries();
-    });
+    $('searchInput').addEventListener('input', () => { if (db) renderEntries(); });
 
+    // ---------- Выбор записи → открываем редактор ----------
     function selectEntry(uuid) {
         selectedUuid = uuid;
         renderEntries();
         const entry = db.getEntry(uuid, true);
         if (!entry) return;
+
+        // Показываем редактор
+        $('entriesPane').classList.add('with-editor');
+        $('editorPane').classList.remove('hidden');
         $('noSelection').classList.add('hidden');
         $('editForm').classList.remove('hidden');
         $('editHeading').textContent = entry.title || 'Запись';
+
         $('fTitle').value = entry.title || '';
         $('fUsername').value = entry.username || '';
         $('fPassword').value = entry.password || '';
@@ -344,6 +440,17 @@
         $('fNotes').value = entry.notes || '';
         populateGroupSelect(entry.groupUuid);
     }
+
+    // ---------- Закрытие редактора ----------
+    function closeEditor() {
+        selectedUuid = null;
+        $('editorPane').classList.add('hidden');
+        $('entriesPane').classList.remove('with-editor');
+        $('editForm').classList.add('hidden');
+        $('noSelection').classList.remove('hidden');
+        renderEntries();
+    }
+    $('closeEditorBtn').addEventListener('click', closeEditor);
 
     // ---------- Заполнение select групп ----------
     function populateGroupSelect(selectedGroupUuid) {
@@ -359,33 +466,25 @@
         });
     }
 
-// ---------- Создание записи ----------
-$('addEntryBtn').addEventListener('click', () => {
-    if (!db) return;
-
-    // Формируем заголовок: "# 2 авг. 2026 г., 15:15"
-    const now = new Date();
-    const formatted = new Intl.DateTimeFormat('ru-RU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    }).format(now);
-    const defaultTitle = `# ${formatted}`;
-
-    // Даём возможность отредактировать название, но по умолчанию оно уже заполнено
-    const title = prompt('Название записи:', defaultTitle);
-    if (!title || !title.trim()) return;
-
-    try {
-        const uuid = db.createEntry(currentGroupUuid, title.trim(), '');
-        selectedUuid = uuid;
-        renderEntries();
-        renderGroups();
-        selectEntry(uuid);
-    } catch (e) { alert(e.message); }
-});
+    // ---------- Создание записи ----------
+    $('addEntryBtn').addEventListener('click', () => {
+        if (!db) return;
+        const now = new Date();
+        const formatted = new Intl.DateTimeFormat('ru-RU', {
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        }).format(now).replace(/\u00A0/g, ' ');
+        const defaultTitle = `# ${formatted}`;
+        const title = prompt('Название записи:', defaultTitle);
+        if (!title || !title.trim()) return;
+        try {
+            const uuid = db.createEntry(currentGroupUuid, title.trim(), '');
+            selectedUuid = uuid;
+            renderEntries();
+            renderGroups();
+            selectEntry(uuid);
+        } catch (e) { alert(e.message); }
+    });
 
     // ---------- Сохранение ----------
     $('saveBtn').addEventListener('click', () => {
@@ -404,6 +503,7 @@ $('addEntryBtn').addEventListener('click', () => {
             renderGroups();
             renderEntries();
             updateCurrentGroupName();
+            $('editHeading').textContent = $('fTitle').value || 'Запись';
             alert('Применено в памяти. Скачайте файл для сохранения.');
         } catch (e) { alert(e.message); }
     });
@@ -413,11 +513,9 @@ $('addEntryBtn').addEventListener('click', () => {
         if (!selectedUuid || !confirm('Удалить запись?')) return;
         try {
             db.deleteEntry(selectedUuid);
-            selectedUuid = null;
+            closeEditor();
             renderEntries();
             renderGroups();
-            $('editForm').classList.add('hidden');
-            $('noSelection').classList.remove('hidden');
         } catch (e) { alert(e.message); }
     });
 
