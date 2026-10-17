@@ -114,7 +114,7 @@
 <body>
 <div class="app">
     <!-- Боковая панель с деревом групп -->
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header">
             <strong>Группы</strong>
             <div style="display: flex; gap: 0.3rem;">
@@ -124,6 +124,8 @@
         </div>
         <div class="sidebar-content">
             <ul id="groupTree" class="group-tree"></ul>
+			
+			
         </div>
     </aside>
 
@@ -202,11 +204,12 @@
         if (!file || !pw) return alert('Выберите файл и введите пароль');
         try {
             const buf = await file.arrayBuffer();
-            db = new KdbxDatabase(new Uint8Array(buf), pw);
-            currentFile = file;
-            currentGroupUuid = db.rootGroupUuid;
-            $('open-section').classList.add('hidden');
-            $('main-section').classList.remove('hidden');
+			db = new KdbxDatabase(new Uint8Array(buf), pw);
+			currentFile = file;
+			currentGroupUuid = db.rootGroupUuid;
+			sidebar.classList.remove('collapsed');   // ← добавить эту строку
+			$('open-section').classList.add('hidden');
+			$('main-section').classList.remove('hidden');
             $('main-section').style.display = 'flex';
             renderGroups();
             renderEntries();
