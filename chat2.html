@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Чат-заметки</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<style>
+* { box-sizing: border-box; margin:0; padding:0; }
+
+:root {
+    --bg1: #0f0c29;
+    --bg2: #302b63;
+    --bg3: #24243e;
+    --accent: #00e0a4;
+    --accent2: #4CAF50;
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.12);
+    --text: #e8e8f0;
+    --text-dim: #a0a0b8;
+}
+
+body, html {
+    height: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2), var(--bg3));
+    transition: background 0.5s;
+}
+
+body:not(.dark) {
+    background: linear-gradient(135deg, #eef2f3, #d9e4f5, #f2f2f2);
+    color: #222;
+}
+
+.chat-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+    background: rgba(20, 18, 40, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+    overflow: hidden;
+    position: relative;
+    transition: background 0.4s, border-color 0.4s;
+}
+
+body:not(.dark) .chat-wrapper {
+    background: rgba(255,255,255,0.8);
+    border-color: rgba(0,0,0,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.chat-title {
+    font-size: 28px;
+    font-weight: 800;
+    text-align: center;
+    padding: 18px 100px;
+    flex-shrink: 0;
+    position: relative;
+    letter-spacing: 0.5px;
+    background: linear-gradient(90deg, #00e0a4, #4CAF50, #00b4d8, #00e0a4);
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 6s linear infinite;
+}
+
+@keyframes shimmer {
+    to { background-position: 300% center; }
+}
+
+body:not(.dark) .chat-title {
+    background: linear-gradient(90deg, #2e7d32, #4CAF50, #00897b, #2e7d32);
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+#themeToggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    font-size: 15px;
+    transition: all 0.25s;
+    z-index: 10;
+}
+
+#themeToggle:hover {
+    background: rgba(0,224,164,0.2);
+    border-color: var(--accent);
+    transform: scale(1.08);
+}
+
+body:not(.dark) #themeToggle {
+    background: rgba(0,0,0,0.06);
+    color: #333;
+    border-color: rgba(0,0,0,0.1);
+}
+
+#clearAllBtn {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+    border: 1px solid rgba(255,80,80,0.35);
+    border-radius: 8px;
+    background: rgba(255,60,60,0.12);
+    color: #ff7b7b;
+    font-size: 15px;
+    transition: all 0.25s;
+    z-index: 10;
+}
+
+#clearAllBtn:hover {
+    background: rgba(255,60,60,0.3);
+    border-color: #ff5555;
+    color: #fff;
+    transform: scale(1.08);
+}
+
+body:not(.dark) #clearAllBtn {
+    background: rgba(255,60,60,0.1);
+    color: #c62828;
+    border-color: rgba(198,40,40,0.3);
+}
+
+body:not(.dark) #clearAllBtn:hover {
+    background: rgba(255,60,60,0.25);
+    color: #b71c1c;
+}
+
+.chat-box {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    transition: background 0.4s;
+    scroll-behavior: smooth;
+}
+
+.chat-box::-webkit-scrollbar { width: 8px; }
+.chat-box::-webkit-scrollbar-track { background: transparent; }
+.chat-box::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.message {
+    background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+    border: 1px solid var(--glass-border);
+    padding: 10px 14px;
+    border-radius: 16px;
+    margin-bottom: 10px;
+    max-width: 78%;
+    word-break: break-word;
+    color: var(--text);
+    animation: msgIn 0.3s ease;
+    transition: background 0.3s, color 0.3s, box-shadow 0.3s;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+
+@keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+body:not(.dark) .message {
+    background: linear-gradient(145deg, #ffffff, #f0f4ff);
+    border-color: rgba(0,0,0,0.06);
+    color: #222;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.message:hover {
+    box-shadow: 0 4px 18px rgba(0,224,164,0.15);
+}
+
+.message-text div {
+    white-space: pre-wrap;
+    line-height: 1.45;
+}
+
+.message-time {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: right;
+    margin-top: 6px;
+    transition: color 0.3s;
+}
+
+.edit-btn {
+    padding: 2px 5px;
+    font-size: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    color: var(--text-dim);
+    margin-top: 6px;
+    margin-right: 4px;
+    transition: all 0.2s;
+}
+
+.edit-btn:hover {
+    color: var(--accent);
+    background: rgba(0,224,164,0.12);
+    border-color: rgba(0,224,164,0.4);
+    transform: translateY(-1px);
+}
+
+body:not(.dark) .edit-btn {
+    background: rgba(0,0,0,0.04);
+    color: #555;
+}
+
+body:not(.dark) .edit-btn:hover {
+    color: #2e7d32;
+    background: rgba(76,175,80,0.12);
+    border-color: rgba(76,175,80,0.4);
+}
+
+.input-area-wrapper {
+    padding: 12px;
+    background: rgba(0,0,0,0.35);
+    flex-shrink: 0;
+    border-top: 1px solid var(--glass-border);
+    transition: background 0.4s, border-color 0.4s;
+}
+
+body:not(.dark) .input-area-wrapper {
+    background: rgba(255,255,255,0.7);
+    border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.input-area {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;   /* кнопки прижаты к низу поля */
+}
+
+/* Поле ввода сообщения — растёт по Enter */
+#messageInput {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
+    font-size: 16px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    line-height: 1.45;
+    outline: none;
+    resize: none;
+    overflow-y: hidden;
+    min-height: 46px;
+    max-height: 40vh;
+    transition: border-color 0.25s, box-shadow 0.25s, background 0.25s, height 0.15s;
+}
+
+#messageInput::placeholder { color: var(--text-dim); }
+
+#messageInput:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,224,164,0.15);
+    background: rgba(255,255,255,0.1);
+}
+
+body:not(.dark) #messageInput {
+    background: rgba(255,255,255,0.9);
+    color: #222;
+    border-color: rgba(0,0,0,0.12);
+}
+
+body:not(.dark) #messageInput:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 3px rgba(76,175,80,0.15);
+}
+
+button {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #06241c;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 4px 14px rgba(0,224,164,0.35);
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(0,224,164,0.55);
+    filter: brightness(1.1);
+}
+
+button:active { transform: translateY(0); }
+
+body:not(.dark) button {
+    background: linear-gradient(135deg, #4CAF50, #2e7d32);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(76,175,80,0.35);
+}
+
+.reply-text {
+    font-size: 12px;
+    color: var(--accent);
+    border-left: 3px solid var(--accent);
+    padding-left: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: color 0.3s, border-color 0.3s, opacity 0.2s;
+    opacity: 0.85;
+}
+
+.reply-text:hover { opacity: 1; text-decoration: underline; }
+
+body:not(.dark) .reply-text {
+    color: #2e7d32;
+    border-color: #4CAF50;
+}
+
+.reply-preview {
+    display: none;
+    background: rgba(0,224,164,0.1);
+    padding: 8px 12px;
+    border-left: 3px solid var(--accent);
+    margin-bottom: 8px;
+    border-radius: 10px;
+    font-size: 13px;
+    position: relative;
+    color: var(--text);
+    transition: background 0.3s, border-color 0.3s;
+}
+
+body:not(.dark) .reply-preview {
+    background: rgba(76,175,80,0.1);
+    border-color: #4CAF50;
+    color: #333;
+}
+
+.reply-preview #cancelReply {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.reply-preview #cancelReply:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.2);
+}
+
+.message.highlight {
+    background: linear-gradient(145deg, rgba(0,224,164,0.35), rgba(0,224,164,0.15)) !important;
+    box-shadow: 0 0 20px rgba(0,224,164,0.5);
+    border-color: var(--accent);
+    animation: pulseHighlight 1s ease;
+}
+
+@keyframes pulseHighlight {
+    0%, 100% { box-shadow: 0 0 12px rgba(0,224,164,0.3); }
+    50% { box-shadow: 0 0 26px rgba(0,224,164,0.7); }
+}
+
+body:not(.dark) .message.highlight {
+    background: #d0f0d0 !important;
+    box-shadow: 0 0 20px rgba(76,175,80,0.4);
+}
+
+/* textarea для РЕДАКТИРОВАНИЯ сообщений (не путать с полем ввода) */
+.message textarea {
+    width: 100%;
+    max-height: 200px;
+    resize: vertical;
+    overflow-y: auto;
+    font-size: 16px;
+    line-height: 1.5;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    outline: none;
+}
+
+body:not(.dark) .message textarea {
+    background: #fff;
+    color: #222;
+    border-color: #4CAF50;
+}
+</style>
+</head>
+<body class="dark">
+
+<div class="chat-wrapper">
+    <div class="chat-title">Чат-заметки</div>
+    <button id="clearAllBtn" title="Очистить весь чат">🗑️ Всё</button>
+	<button id="themeToggle">☀️</button>
+    <div class="chat-box" id="chatBox"></div>
+
+    <div class="input-area-wrapper">
+        <div class="reply-preview" id="replyPreview">
+            <span id="replyText"></span>
+            <span id="cancelReply">❌</span>
+        </div>
+        <div class="input-area">
+            <textarea id="messageInput" placeholder="Введите сообщение..." rows="1"></textarea>
+            <button onclick="sendMessage()">Отправить</button>
+            <button onclick="copyChat()">💾</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY = "chat_notes_data_v2";
+const THEME_KEY = "chat_notes_theme";
+
+/* ---------- ПРОВЕРКА localStorage ---------- */
+let storageAvailable = false;
+try {
+    const testKey = "__test__";
+    localStorage.setItem(testKey, "1");
+    localStorage.removeItem(testKey);
+    storageAvailable = true;
+} catch (e) {
+    storageAvailable = false;
+    console.warn("localStorage недоступен:", e);
+}
+
+function storageWarn() {
+    if (!storageAvailable) {
+        console.warn("⚠️ localStorage недоступен. Данные не будут сохранены после перезагрузки. Возможно, страница открыта как file:// или в приватном режиме.");
+    }
+}
+
+/* ---------- ВРЕМЯ ---------- */
+function getCurrentTime() {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/* ---------- СОХРАНЕНИЕ ---------- */
+function saveChat() {
+    if (!storageAvailable) { storageWarn(); return; }
+
+    const chatBox = document.getElementById("chatBox");
+    const data = [];
+
+    chatBox.querySelectorAll(".message").forEach(msg => {
+        const textDiv = msg.querySelector(".message-text");
+        const textarea = msg.querySelector("textarea");
+
+        let mainText = "";
+        if (textarea) {
+            mainText = textarea.value;
+        } else if (textDiv) {
+            const mainDiv = textDiv.querySelector("div:last-child");
+            mainText = mainDiv ? mainDiv.textContent : "";
+        }
+
+        const replyDiv = msg.querySelector(".reply-text");
+        let replyText = "";
+        if (replyDiv) {
+            replyText = replyDiv.dataset.fullReply || replyDiv.textContent.replace(/^Ответ на:\s*/, "");
+        }
+
+        const timeDiv = msg.querySelector(".message-time");
+        const time = timeDiv ? timeDiv.textContent : "";
+
+        data.push({ text: mainText, reply: replyText, time: time });
+    });
+
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        console.log("💾 Сохранено сообщений:", data.length);
+    } catch (e) {
+        console.error("Ошибка сохранения:", e);
+        alert("Не удалось сохранить чат: " + e.message);
+    }
+}
+
+/* ---------- ЗАГРУЗКА ---------- */
+function loadChat() {
+    if (!storageAvailable) { storageWarn(); return; }
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+        console.log("Нет сохранённых данных");
+        return;
+    }
+
+    let data;
+    try { data = JSON.parse(raw); } catch (e) { 
+        console.error("Ошибка парсинга:", e);
+        return; 
+    }
+    if (!Array.isArray(data)) return;
+
+    console.log("📂 Загружено сообщений:", data.length);
+
+    data.forEach(item => {
+        addMessageToDOM(item.text, item.reply, item.time, false);
+    });
+
+    const chatBox = document.getElementById("chatBox");
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/* ---------- АВТО-РОСТ ПОЛЯ ВВОДА ---------- */
+const messageInput = document.getElementById("messageInput");
+
+function autoResize() {
+    messageInput.style.height = "auto";
+    messageInput.style.height = messageInput.scrollHeight + "px";
+    if (messageInput.scrollHeight > window.innerHeight * 0.4) {
+        messageInput.style.overflowY = "auto";
+    } else {
+        messageInput.style.overflowY = "hidden";
+    }
+}
+
+function resetInputHeight() {
+    messageInput.style.height = "auto";
+    messageInput.style.overflowY = "hidden";
+}
+
+messageInput.addEventListener("input", autoResize);
+
+messageInput.addEventListener("keydown", function(e) {
+    // Ctrl+Enter / Cmd+Enter — отправить
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendMessage();
+        return;
+    }
+    // Enter — обычный перенос строки (ничего не делаем)
+});
+
+/* ---------- ОТПРАВКА ---------- */
+function sendMessage() {
+    const text = messageInput.value.trim();
+    if (!text) return;
+
+    const replyPreview = document.getElementById("replyPreview");
+    replyPreview.style.display = "none";
+    let replyText = "";
+    if (messageInput.dataset.replyTo) {
+        replyText = messageInput.dataset.replyTo;
+        delete messageInput.dataset.replyTo;
+    }
+
+    addMessageToDOM(text, replyText, getCurrentTime(), true);
+    saveChat();
+
+    messageInput.value = "";
+    resetInputHeight();
+
+    const chatBox = document.getElementById("chatBox");
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/* ---------- ДОБАВЛЕНИЕ СООБЩЕНИЯ В DOM ---------- */
+function addMessageToDOM(text, replyText, time, animate) {
+    const chatBox = document.getElementById("chatBox");
+
+    const message = document.createElement("div");
+    message.className = "message";
+    if (!animate) message.style.animation = "none";
+
+    const textDiv = document.createElement("div");
+    textDiv.className = "message-text";
+
+    if (replyText) {
+        const replyDiv = document.createElement("div");
+        replyDiv.className = "reply-text";
+        const shortReply = replyText.length > 50 ? replyText.slice(0, 50) + "..." : replyText;
+        replyDiv.textContent = "Ответ на: " + shortReply;
+        replyDiv.dataset.fullReply = replyText;
+
+        replyDiv.onclick = function () {
+            const allMsgs = Array.from(document.querySelectorAll(".message"));
+            for (const m of allMsgs) {
+                const mainTextDiv = m.querySelector(".message-text div:last-child");
+                if (mainTextDiv && mainTextDiv.textContent === replyText) {
+                    m.scrollIntoView({ behavior: "smooth", block: "center" });
+                    m.classList.add("highlight");
+                    setTimeout(() => m.classList.remove("highlight"), 1000);
+                    break;
+                }
+            }
+        };
+
+        textDiv.appendChild(replyDiv);
+    }
+
+    const mainText = document.createElement("div");
+    mainText.textContent = text;
+    textDiv.appendChild(mainText);
+
+    const timeDiv = document.createElement("div");
+    timeDiv.className = "message-time";
+    timeDiv.textContent = time || getCurrentTime();
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "edit-btn";
+    editBtn.textContent = "✏️ Редактировать";
+    editBtn.onclick = function () { editMessage(message); };
+
+    const replyBtn = document.createElement("button");
+    replyBtn.className = "edit-btn";
+    replyBtn.textContent = "💬 Ответить";
+    replyBtn.onclick = function () {
+        const inputField = messageInput;
+        const preview = document.getElementById("replyPreview");
+        const previewText = document.getElementById("replyText");
+
+        inputField.focus();
+        inputField.dataset.replyTo = mainText.textContent;
+
+        previewText.textContent = mainText.textContent.length > 50 
+            ? mainText.textContent.slice(0, 20) + "..." 
+            : mainText.textContent;
+        preview.style.display = "block";
+    };
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "edit-btn";
+    deleteBtn.textContent = "🗑️";
+    deleteBtn.onclick = function () {
+        if (confirm("Вы действительно хотите удалить это сообщение?")) {
+            message.remove();
+            saveChat();
+        }
+    };
+
+    message.appendChild(textDiv);
+    message.appendChild(timeDiv);
+    message.appendChild(editBtn);
+    message.appendChild(replyBtn);
+    message.appendChild(deleteBtn);
+    chatBox.appendChild(message);
+}
+
+/* ---------- РЕДАКТИРОВАНИЕ ---------- */
+function editMessage(messageContainer) {
+    const textDiv = messageContainer.querySelector(".message-text");
+    const mainText = textDiv.querySelector("div:last-child").textContent;
+
+    const textarea = document.createElement("textarea");
+    textarea.value = mainText;
+
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "Сохранить";
+    saveBtn.style.marginTop = "8px";
+
+    const replyDiv = textDiv.querySelector(".reply-text");
+    if (replyDiv) replyDiv.remove();
+
+    textDiv.replaceWith(textarea);
+    messageContainer.appendChild(saveBtn);
+
+    textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    });
+
+    saveBtn.onclick = function () {
+        const newTextDiv = document.createElement("div");
+        newTextDiv.className = "message-text";
+
+        if (replyDiv) newTextDiv.appendChild(replyDiv);
+
+        const mainTextDiv = document.createElement("div");
+        mainTextDiv.textContent = textarea.value;
+        newTextDiv.appendChild(mainTextDiv);
+
+        textarea.replaceWith(newTextDiv);
+        saveBtn.remove();
+        saveChat();
+    };
+}
+
+/* ---------- ОТМЕНА ОТВЕТА ---------- */
+document.getElementById("cancelReply").onclick = function () {
+    const replyPreview = document.getElementById("replyPreview");
+    delete messageInput.dataset.replyTo;
+    replyPreview.style.display = "none";
+};
+
+/* ---------- КОПИРОВАНИЕ ЧАТА ---------- */
+function copyChat() {
+    const chatBox = document.getElementById("chatBox");
+    let chatText = "";
+
+    chatBox.querySelectorAll(".message").forEach(msg => {
+        let mainText = "";
+        const textDiv = msg.querySelector(".message-text");
+        const textarea = msg.querySelector("textarea");
+
+        if (textarea) {
+            mainText = textarea.value;
+        } else if (textDiv) {
+            const mainDiv = textDiv.querySelector("div:last-child");
+            mainText = mainDiv ? mainDiv.innerText : "";
+        } else {
+            return;
+        }
+
+        const replyDiv = msg.querySelector(".reply-text");
+        const replyText = replyDiv ? replyDiv.innerText : "";
+
+        const timeDiv = msg.querySelector(".message-time");
+        const time = timeDiv ? " `" + timeDiv.textContent + "`" : "";
+
+        if (replyText) {
+            replyText.split("\n").forEach(line => {
+                chatText += ">>" + line + "\n";
+            });
+        }
+
+        const mainLines = mainText.split("\n");
+
+        mainLines.forEach((line, index) => {
+            if (index === mainLines.length - 1) {
+                chatText += ">" + line + time + "\n ***";
+            } else {
+                chatText += ">" + line + "\n";
+            }
+        });
+
+        chatText += "\n";
+    });
+
+    navigator.clipboard.writeText(chatText)
+        .then(() => alert("Чат скопирован в буфер обмена!"))
+        .catch(err => alert("Ошибка при копировании: " + err));
+}
+
+/* ---------- ПОЛНАЯ ОЧИСТКА ---------- */
+document.getElementById("clearAllBtn").onclick = function () {
+    if (!confirm("Удалить ВЕСЬ чат безвозвратно? Это действие нельзя отменить.")) return;
+
+    document.getElementById("chatBox").innerHTML = "";
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+        console.log("🗑️ Чат очищен");
+    } catch (e) {
+        console.error("Ошибка очистки:", e);
+    }
+
+    delete messageInput.dataset.replyTo;
+    document.getElementById("replyPreview").style.display = "none";
+};
+
+/* ---------- ТЕМА ---------- */
+const themeBtn = document.getElementById('themeToggle');
+
+function applyTheme(isDark) {
+    if (isDark) {
+        document.body.classList.add('dark');
+        themeBtn.textContent = '☀️';
+    } else {
+        document.body.classList.remove('dark');
+        themeBtn.textContent = '🌙';
+    }
+}
+
+themeBtn.onclick = () => {
+    const isDark = !document.body.classList.contains('dark');
+    applyTheme(isDark);
+    if (storageAvailable) {
+        try { localStorage.setItem(THEME_KEY, isDark ? "dark" : "light"); } catch(e){}
+    }
+};
+
+/* ---------- СОХРАНЕНИЕ ПРИ ЗАКРЫТИИ ---------- */
+window.addEventListener("beforeunload", function() {
+    saveChat();
+});
+
+/* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
+(function init() {
+    if (!storageAvailable) {
+        storageWarn();
+    }
+
+    if (storageAvailable) {
+        const savedTheme = localStorage.getItem(THEME_KEY);
+        if (savedTheme === "light") applyTheme(false);
+        else applyTheme(true);
+    }
+
+    loadChat();
+    autoResize();
+})();
+</script>
+
+</body>
+</html>
