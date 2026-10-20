@@ -3,43 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-	<!-- <meta http-equiv="Content-Security-Policy" content="connect-src 'none';"> -->
     <title>KDBX Редактор</title>
-    <link rel="stylesheet" href="./lib/pico.min.css">
     <style>
         :root {
-            --pico-font-size: 90%;
-            --app-radius: 12px;
-            --app-border: 1px solid var(--pico-muted-border-color);
-            --app-shadow: 0 4px 20px rgba(0,0,0,.06);
-            --app-bg: var(--pico-background-color);
-            --app-panel: var(--pico-card-background-color);
+            --font-size: 90%;
+            --radius: 12px;
+            --border: 1px solid #dcdcdc;
+            --shadow: 0 4px 20px rgba(0,0,0,.06);
+            --bg: transparent;
+            --panel: rgba(255, 255, 255, .32);
+            --secondary-bg: #ececec;
+            --primary-bg: #3b6ef5;
+            --primary-inverse: #ffffff;
+            --color: #1a1a1a;
+            --muted-border: #dcdcdc;
+            --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-            /* Safe area (для iPhone с вырезом) */
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
             --safe-left: env(safe-area-inset-left, 0px);
             --safe-right: env(safe-area-inset-right, 0px);
         }
-        * { box-sizing: border-box; }
+
+        *, *::before, *::after { box-sizing: border-box; }
         html {
             height: 100%;
             touch-action: manipulation;
         }
         body {
             margin: 0;
-            height: 100%;
-            background: var(--pico-background-color);
-            overflow: hidden;
+            padding: 0;
+            font-family: var(--font-family);
+            font-size: var(--font-size);
+            color: var(--color);
+            background: url('./lib/2.jpg') center/cover no-repeat fixed;
+            -webkit-text-size-adjust: 100%;
         }
+/* Фон: фото с мягким размытием */
+body::before {
+    content: "";
+    position: fixed;
+    inset: -20px;                          /* чуть больше экрана, чтобы края блюра не обрезались */
+    background: url('./lib/2.jpg') center / cover no-repeat;
+    filter: blur(18px) saturate(1.15) brightness(.95);
+    transform: scale(1.06);                /* прячем артефакты блюра по краям */
+    z-index: -2;
+    pointer-events: none;
+}
+
+/* Затемнение + виньетка поверх фото */
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at center, rgba(0,0,0,.15) 0%, rgba(0,0,0,.55) 100%),
+        rgba(0, 0, 0, .15);
+    z-index: -1;
+    pointer-events: none;
+}
+
+        input, textarea, select, button {
+            font: inherit;
+            color: inherit;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: .45rem .6rem;
+            border: 1px solid var(--muted-border);
+            border-radius: 8px;
+            background: #fff;
+            outline: none;
+            transition: border-color .15s;
+            font-size: 16px !important;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--primary-bg);
+        }
+        button {
+            cursor: pointer;
+            padding: .45rem .8rem;
+            border: 1px solid var(--muted-border);
+            border-radius: 8px;
+            background: #fff;
+            transition: background .15s;
+            font-size: 16px !important;
+        }
+        button:hover { background: var(--secondary-bg); }
+
+        .btn.secondary { background: var(--secondary-bg); border-color: transparent; }
+        .btn.contrast  { background: var(--primary-bg); color: var(--primary-inverse); border-color: transparent; }
+        .btn.contrast:hover { filter: brightness(.95); }
+
         .app { display: flex; height: 100vh; height: 100dvh; }
 
         /* ============ Боковая панель ============ */
         .sidebar {
             width: 280px;
             flex-shrink: 0;
-            background: var(--app-panel);
-            border-right: var(--app-border);
+            background: var(--panel);
+            border-right: var(--border);
             display: flex;
             flex-direction: column;
             transition: width .22s ease, transform .22s ease;
@@ -50,7 +113,7 @@
         .sidebar-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: calc(.75rem + var(--safe-top)) .9rem .75rem .9rem;
-            border-bottom: var(--app-border);
+            border-bottom: var(--border);
             flex-shrink: 0;
         }
         .sidebar-header strong { font-size: .95rem; letter-spacing: .2px; }
@@ -67,7 +130,7 @@
             font-size: 1rem; line-height: 1;
             transition: background .15s;
         }
-        .icon-btn:hover { background: var(--pico-secondary-background); }
+        .icon-btn:hover { background: var(--secondary-bg); }
 
         /* ============ Дерево ============ */
         .group-tree, .group-tree ul { list-style: none; margin: 0; padding-left: 0; }
@@ -78,10 +141,10 @@
             font-size: .85rem; user-select: none;
             transition: background .15s;
         }
-        .group-node:hover { background: var(--pico-secondary-background); }
+        .group-node:hover { background: var(--secondary-bg); }
         .group-node.active {
-            background: var(--pico-primary-background);
-            color: var(--pico-primary-inverse);
+            background: var(--primary-bg);
+            color: var(--primary-inverse);
         }
         .group-toggle {
             width: 18px; height: 18px; flex-shrink: 0;
@@ -112,15 +175,15 @@
         }
         .open-card {
             width: 100%; max-width: 440px;
-            background: var(--app-panel);
-            border: var(--app-border);
-            border-radius: var(--app-radius);
-            box-shadow: var(--app-shadow);
+            background: var(--panel);
+            border: var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             padding: 1.75rem;
         }
         .open-card h2 { margin: 0 0 .25rem; font-size: 1.35rem; }
         .open-card p { margin: 0 0 1.25rem; opacity: .65; font-size: .85rem; }
-        .open-card label { font-size: .8rem; font-weight: 600; }
+        .open-card label { font-size: .8rem; font-weight: 600; display: block; }
         .open-card input { margin-bottom: .75rem; }
         .open-card button { width: 100%; margin-top: .25rem; }
 
@@ -128,8 +191,8 @@
         .main-header {
             display: flex; align-items: center; gap: .5rem;
             padding: calc(.6rem + var(--safe-top)) calc(.9rem + var(--safe-right)) .6rem calc(.9rem + var(--safe-left));
-            border-bottom: var(--app-border);
-            background: var(--app-panel);
+            border-bottom: var(--border);
+            background: var(--panel);
             flex-shrink: 0;
         }
         .main-header h3 {
@@ -142,15 +205,19 @@
         }
 
         /* Контент */
-        .main-content { flex: 1; display: flex; overflow: hidden; }
-        .entries-pane {
-            flex: 1; overflow-y: auto; padding: .75rem; min-width: 0;
-            padding-bottom: calc(.75rem + var(--safe-bottom));
-        }
-        .entries-pane.with-editor {
-            flex: 0 0 340px;
-            border-right: var(--app-border);
-        }
+/* Контент */
+.main-content { flex: 1; display: flex; overflow: hidden; }
+
+.entries-pane {
+    flex: 1; overflow-y: auto; padding: .75rem; min-width: 0;
+    padding-bottom: calc(.75rem + var(--safe-bottom));
+    background: var(--panel);          /* ← было transparent */
+    border-right: var(--border);       /* ← разделитель, чтобы не сливалось */
+}
+
+.entries-pane.with-editor {
+    flex: 0 0 340px;
+}
 
         /* ============ Записи ============ */
         .entry-item {
@@ -158,10 +225,10 @@
             border-radius: 10px; margin-bottom: 3px;
             transition: background .15s;
         }
-        .entry-item:hover { background: var(--pico-secondary-background); }
+        .entry-item:hover { background: var(--secondary-bg); }
         .entry-item.active {
-            background: var(--pico-primary-background);
-            color: var(--pico-primary-inverse);
+            background: var(--primary-bg);
+            color: var(--primary-inverse);
         }
         .entry-item strong { font-size: .88rem; display: block; }
         .meta-text { font-size: .75rem; opacity: .65; }
@@ -171,18 +238,20 @@
         }
 
         /* ============ Редактор ============ */
-        .editor-pane {
-            flex: 1; min-width: 0;
-            display: flex; flex-direction: column;
-            background: var(--app-bg);
-        }
+/* ============ Редактор ============ */
+.editor-pane {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    background: var(--panel);          /* ← было var(--bg) (transparent) */
+    min-height: 0;
+}
         .editor-pane.hidden { display: none; }
 
         .editor-header {
             display: flex; align-items: center; gap: .6rem;
             padding: calc(.6rem + var(--safe-top)) calc(.9rem + var(--safe-right)) .6rem calc(.9rem + var(--safe-left));
-            border-bottom: var(--app-border);
-            background: var(--app-panel);
+            border-bottom: var(--border);
+            background: var(--panel);
             flex-shrink: 0;
         }
         .editor-header h4 {
@@ -190,16 +259,29 @@
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .back-btn {
-            background: transparent; border: var(--app-border);
+            background: transparent; border: var(--border);
             border-radius: 8px; padding: .3rem .7rem;
             font-size: .8rem; cursor: pointer; color: inherit;
             white-space: nowrap;
             transition: background .15s;
         }
-        .back-btn:hover { background: var(--pico-secondary-background); }
+        .back-btn:hover { background: var(--secondary-bg); }
 
         .editor-body {
-            flex: 1; overflow-y: auto; padding: 1rem;
+            flex: 1; min-height: 0;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            padding: 1rem;
+        }
+        #editForm {
+            flex: 1; min-height: 0;
+            display: flex; flex-direction: column;
+        }
+        #editForm .field-group:first-child { flex-shrink: 0; }
+        #editForm .field-group:last-child {
+            flex: 1; min-height: 0;
+            display: flex; flex-direction: column;
+            margin-bottom: 0;
         }
         .field-group { margin-bottom: .8rem; }
         .field-group label {
@@ -211,18 +293,39 @@
         .field-group select {
             margin-bottom: 0;
         }
-        .actions {
-            display: flex; gap: .5rem; flex-wrap: wrap;
-            padding: .75rem calc(1rem + var(--safe-right)) calc(.75rem + var(--safe-bottom)) calc(1rem + var(--safe-left));
-            border-top: var(--app-border);
-            background: var(--app-panel);
-            flex-shrink: 0;
+
+        #fTitle {
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            padding: .25rem .1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
         }
-        .actions button {
-            padding: .4rem .8rem; font-size: .82rem;
-            border-radius: 8px; margin-bottom: 0;
+        #fTitle:focus {
+            outline: none;
+            box-shadow: none;
+            border: none;
+            background: transparent;
         }
-        .actions .spacer { flex: 1; }
+
+        #fNotes {
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            resize: none;
+            overflow-y: auto;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            padding: .25rem .1rem;
+        }
+        #fNotes:focus {
+            outline: none;
+            box-shadow: none;
+            border: none;
+            background: transparent;
+        }
 
         /* ============ Оверлей ============ */
         .overlay {
@@ -252,122 +355,22 @@
 
             .entries-pane.with-editor { flex: 1; border-right: none; }
 
-            /* Редактор — полноэкранный поверх */
             .editor-pane {
                 position: fixed; inset: 0; z-index: 200;
-                background: var(--app-bg);
+                background: var(--bg);
                 height: 100vh; height: 100dvh;
             }
             .editor-pane.hidden { display: none; }
 
-            /* Поля ввода ≥16px, чтобы iOS не зумил */
-            input, textarea, select, button {
-                font-size: 16px !important;
-            }
-
-            /* Кнопки сохранения всегда внизу и в потоке */
-            .actions {
-                position: sticky;
-                bottom: 0;
-                z-index: 10;
-                background: var(--app-panel);
-            }
-            .actions button { flex: 1 1 auto; }
-
             .main-header .btn { padding: .3rem .55rem; font-size: .75rem; }
             .main-header h3 { font-size: .85rem; }
         }
-		
-		input, textarea, select {
-    font-size: 16px !important;
-}
-
-/* Заголовок без рамки */
-#fTitle {
-    border: none;
-    background: transparent;
-    box-shadow: none;
-    padding: .25rem .1rem;
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-#fTitle:focus {
-    outline: none;
-    box-shadow: none;
-    border: none;
-    background: transparent;
-}
-
-/* Заметки без рамки */
-#fNotes {
-    border: none;
-    background: transparent;
-    box-shadow: none;
-    padding: .25rem .1rem;
-    resize: vertical;
-}
-#fNotes:focus {
-    outline: none;
-    box-shadow: none;
-    border: none;
-    background: transparent;
-}
-
-
-/* Редактор — колонка на всю высоту */
-.editor-pane {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;          /* важно: иначе flex-дети не сжимаются */
-}
-
-.editor-body {
-    flex: 1;
-    min-height: 0;          /* важно */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;       /* прокрутка будет внутри textarea */
-    padding: 1rem;
-}
-
-#editForm {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Заголовок — фиксированной высоты, не растягивается */
-#editForm .field-group:first-child { flex-shrink: 0; }
-
-/* Группа с заметками — забирает всё оставшееся место */
-#editForm .field-group:last-child {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 0;
-}
-
-/* Сам textarea — на всю высоту группы */
-#fNotes {
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-    resize: none;           /* иначе пользователь может «сломать» раскладку */
-    overflow-y: auto;       /* прокрутка внутри поля */
-}
-
-
-
     </style>
 </head>
 <body>
 <div class="app">
-    <!-- Оверлей для мобильной панели -->
     <div class="overlay" id="overlay"></div>
 
-    <!-- Боковая панель -->
     <aside class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header">
             <strong>Группы</strong>
@@ -385,9 +388,7 @@
         </div>
     </aside>
 
-    <!-- Основная область -->
     <div class="main-area">
-        <!-- Экран открытия -->
         <div id="open-section">
             <div class="open-card">
                 <h2>KDBX Редактор</h2>
@@ -402,7 +403,6 @@
             </div>
         </div>
 
-        <!-- Основной интерфейс -->
         <div id="main-section" class="hidden" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
             <div class="main-header">
                 <button class="icon-btn" id="toggleSidebarBtn" title="Показать/скрыть панель">☰</button>
@@ -412,21 +412,17 @@
             </div>
 
             <div class="main-content">
-                <!-- Список записей -->
                 <div class="entries-pane" id="entriesPane">
                     <input type="search" id="searchInput" placeholder="Поиск..." style="margin-bottom: .75rem;">
                     <div id="entriesList"></div>
                 </div>
 
-                <!-- Редактор -->
                 <div class="editor-pane hidden" id="editorPane">
-
-
-<div class="editor-header">
-    <button id="closeEditorBtn" class="back-btn">← Назад</button>
-    <h4 id="editHeading">Редактирование</h4>
-    <button id="deleteEntryBtn" class="icon-btn" title="Удалить запись">🗑</button>
-</div>
+                    <div class="editor-header">
+                        <button id="closeEditorBtn" class="back-btn">← Назад</button>
+                        <h4 id="editHeading">Редактирование</h4>
+                        <button id="deleteEntryBtn" class="icon-btn" title="Удалить запись">🗑</button>
+                    </div>
 
                     <div class="editor-body">
                         <div id="noSelection" class="empty-state">
@@ -434,27 +430,21 @@
                         </div>
 
                         <div id="editForm" class="hidden">
-    <div class="field-group"><label>Заголовок</label><input id="fTitle"></div>
+                            <div class="field-group"><label>Заголовок</label><input id="fTitle"></div>
 
-    <!-- Скрытые поля -->
-    <div class="hidden">
-        <div class="field-group"><label>Логин</label><input id="fUsername"></div>
-        <div class="field-group"><label>Пароль</label><input id="fPassword"></div>
-        <div class="field-group"><label>URL</label><input id="fUrl"></div>
-        <div class="field-group">
-            <label>Группа (перемещение)</label>
-            <select id="fGroupSelect"></select>
-        </div>
-    </div>
+                            <div class="hidden">
+                                <div class="field-group"><label>Логин</label><input id="fUsername"></div>
+                                <div class="field-group"><label>Пароль</label><input id="fPassword"></div>
+                                <div class="field-group"><label>URL</label><input id="fUrl"></div>
+                                <div class="field-group">
+                                    <label>Группа (перемещение)</label>
+                                    <select id="fGroupSelect"></select>
+                                </div>
+                            </div>
 
-    <div class="field-group"><label>Заметки</label><textarea id="fNotes" rows="3"></textarea></div>
-</div>
+                            <div class="field-group"><label>Заметки</label><textarea id="fNotes" rows="3"></textarea></div>
+                        </div>
                     </div>
-
-
-
-
-
                 </div>
             </div>
         </div>
@@ -477,7 +467,6 @@ const expandedGroups = new Set();
 
 const isMobile = () => window.innerWidth <= 768;
 
-// ---------- Панель ----------
 function openSidebar() {
     sidebar.classList.remove('collapsed');
     if (isMobile()) overlay.classList.add('visible');
@@ -492,7 +481,6 @@ $('toggleSidebarBtn').addEventListener('click', () => {
 $('closeSidebarBtn').addEventListener('click', closeSidebar);
 overlay.addEventListener('click', closeSidebar);
 
-// ---------- Кнопка "Все записи" ----------
 $('allEntriesItem').addEventListener('click', () => {
     if (!db) return;
     showingAllEntries = true;
@@ -504,7 +492,6 @@ $('allEntriesItem').addEventListener('click', () => {
     if (isMobile()) closeSidebar();
 });
 
-// ---------- Открытие ----------
 $('openBtn').addEventListener('click', async () => {
     const file = $('fileInput').files[0];
     const pw = $('masterPassword').value;
@@ -519,7 +506,6 @@ $('openBtn').addEventListener('click', async () => {
         $('main-section').classList.remove('hidden');
         $('main-section').style.display = 'flex';
 
-        // Сразу показываем все записи, панель не открываем
         showingAllEntries = true;
         closeSidebar();
 
@@ -545,7 +531,6 @@ function highlightActiveSidebarItem(id) {
     if (id) $(id).classList.add('active');
 }
 
-// ---------- Дерево ----------
 function renderGroups() {
     const groups = db.getGroups();
     const childrenMap = new Map();
@@ -668,7 +653,6 @@ function renderGroups() {
         tree.appendChild(rootLi);
     }
 
-    // Подсветка активного пункта в сайдбаре
     if (showingAllEntries) {
         highlightActiveSidebarItem('allEntriesItem');
     } else {
@@ -711,7 +695,6 @@ $('addGroupBtn').addEventListener('click', () => {
     } catch (e) { alert('Ошибка: ' + e.message); }
 });
 
-// ---------- Записи ----------
 function renderEntries() {
     const list = $('entriesList');
     list.innerHTML = '';
@@ -730,20 +713,20 @@ function renderEntries() {
         list.innerHTML = '<div class="empty-state">Нет записей</div>';
         return;
     }
-entries.forEach(entry => {
-    const div = document.createElement('div');
-    div.className = 'entry-item' + (entry.uuid === selectedUuid ? ' active' : '');
+    entries.forEach(entry => {
+        const div = document.createElement('div');
+        div.className = 'entry-item' + (entry.uuid === selectedUuid ? ' active' : '');
 
-    const notesPreview = (entry.notes || '').slice(0, 20);
-    const metaLine = notesPreview
-        ? `<div class="meta-text">${escapeHtml(notesPreview)}</div>`
-        : '';
+        const notesPreview = (entry.notes || '').slice(0, 20);
+        const metaLine = notesPreview
+            ? `<div class="meta-text">${escapeHtml(notesPreview)}</div>`
+            : '';
 
-    div.innerHTML = `<strong>${escapeHtml(entry.title || 'Без названия')}</strong>
-        ${metaLine}`;
-    div.addEventListener('click', () => selectEntry(entry.uuid));
-    list.appendChild(div);
-});
+        div.innerHTML = `<strong>${escapeHtml(entry.title || 'Без названия')}</strong>
+            ${metaLine}`;
+        div.addEventListener('click', () => selectEntry(entry.uuid));
+        list.appendChild(div);
+    });
 }
 
 $('searchInput').addEventListener('input', () => { if (db) renderEntries(); });
@@ -795,7 +778,6 @@ function populateGroupSelect(selectedGroupUuid) {
     });
 }
 
-// ---------- Создание записи ----------
 $('addEntryBtn').addEventListener('click', () => {
     if (!db) return;
     const now = new Date();
@@ -815,9 +797,6 @@ $('addEntryBtn').addEventListener('click', () => {
     } catch (e) { alert(e.message); }
 });
 
-// ---------- Сохранение ----------
-
-// ---------- Сохранение ----------
 function saveCurrentEntry() {
     if (!selectedUuid) return;
     try {
@@ -845,7 +824,6 @@ $('fPassword').addEventListener('input', saveCurrentEntry);
 $('fUrl').addEventListener('input', saveCurrentEntry);
 $('fGroupSelect').addEventListener('change', saveCurrentEntry);
 
-// ---------- Удаление записи ----------
 $('deleteEntryBtn').addEventListener('click', () => {
     if (!selectedUuid || !confirm('Удалить запись?')) return;
     try {
@@ -856,7 +834,6 @@ $('deleteEntryBtn').addEventListener('click', () => {
     } catch (e) { alert(e.message); }
 });
 
-// ---------- Скачивание ----------
 $('downloadBtn').addEventListener('click', () => {
     if (!db || !currentFile) return;
     try {
