@@ -4,368 +4,460 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KDBX Редактор</title>
-    <style>
-        :root {
-            --font-size: 90%;
-            --radius: 12px;
-            --border: 1px solid #dcdcdc;
-            --shadow: 0 4px 20px rgba(0,0,0,.06);
-            --bg: transparent;
-            --panel: rgba(255, 255, 255, .32);
-            --secondary-bg: #ececec;
-            --primary-bg: #3b6ef5;
-            --primary-inverse: #ffffff;
-            --color: #1a1a1a;
-            --muted-border: #dcdcdc;
-            --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+<style>
+    :root {
+        --font-size: 90%;
+        --radius: 12px;
+        --border: 1px solid rgba(255,255,255,.18);
+        --shadow: 0 4px 20px rgba(0,0,0,.18);
+        --panel: rgba(20, 22, 28, .72);
+        --panel-solid: rgba(20, 22, 28, .72);
 
-            --safe-top: env(safe-area-inset-top, 0px);
-            --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --safe-left: env(safe-area-inset-left, 0px);
-            --safe-right: env(safe-area-inset-right, 0px);
-        }
+        --secondary-bg: rgba(255,255,255,.08);
+        --primary-bg: #3b6ef5;
+        --primary-inverse: #ffffff;
+        --color: #eef1f6;
+        --muted-color: rgba(238, 241, 246, .6);
+        --muted-border: rgba(255,255,255,.16);
+        --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-        *, *::before, *::after { box-sizing: border-box; }
-        html {
-            height: 100%;
-            touch-action: manipulation;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-family);
-            font-size: var(--font-size);
-            color: var(--color);
-            background: url('./lib/2.jpg') center/cover no-repeat fixed;
-            -webkit-text-size-adjust: 100%;
-        }
-/* Фон: фото с мягким размытием */
-body::before {
-    content: "";
-    position: fixed;
-    inset: -20px;                          /* чуть больше экрана, чтобы края блюра не обрезались */
-    background: url('./lib/2.jpg') center / cover no-repeat;
-    filter: blur(18px) saturate(1.15) brightness(.95);
-    transform: scale(1.06);                /* прячем артефакты блюра по краям */
-    z-index: -2;
-    pointer-events: none;
-}
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-left: env(safe-area-inset-left, 0px);
+        --safe-right: env(safe-area-inset-right, 0px);
+    }
 
-/* Затемнение + виньетка поверх фото */
-body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background:
-        radial-gradient(ellipse at center, rgba(0,0,0,.15) 0%, rgba(0,0,0,.55) 100%),
-        rgba(0, 0, 0, .15);
-    z-index: -1;
-    pointer-events: none;
-}
+    *, *::before, *::after { box-sizing: border-box; }
+    html {
+        height: 100%;
+        touch-action: manipulation;
+    }
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: var(--font-family);
+        font-size: var(--font-size);
+        color: var(--color);
+        background: #0f1115;
+        -webkit-text-size-adjust: 100%;
+        text-shadow: 0 1px 2px rgba(0,0,0,.35);
+    }
 
-        input, textarea, select, button {
-            font: inherit;
-            color: inherit;
-        }
-        input, textarea, select {
-            width: 100%;
-            padding: .45rem .6rem;
-            border: 1px solid var(--muted-border);
-            border-radius: 8px;
-            background: #fff;
-            outline: none;
-            transition: border-color .15s;
-            font-size: 16px !important;
-        }
-        input:focus, textarea:focus, select:focus {
-            border-color: var(--primary-bg);
-        }
-        button {
-            cursor: pointer;
-            padding: .45rem .8rem;
-            border: 1px solid var(--muted-border);
-            border-radius: 8px;
-            background: #fff;
-            transition: background .15s;
-            font-size: 16px !important;
-        }
-        button:hover { background: var(--secondary-bg); }
+    /* Единый фон: фото с мягким размытием */
+    body::before {
+        content: "";
+        position: fixed;
+        inset: -20px;
+        background: url('./lib/2.jpg') center / cover no-repeat;
+        filter: blur(18px) saturate(1.15) brightness(1);
+        transform: scale(1.06);
+        z-index: -2;
+        pointer-events: none;
+    }
 
-        .btn.secondary { background: var(--secondary-bg); border-color: transparent; }
-        .btn.contrast  { background: var(--primary-bg); color: var(--primary-inverse); border-color: transparent; }
-        .btn.contrast:hover { filter: brightness(.95); }
+    /* Затемнение + виньетка */
+    body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+            radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,.5) 100%),
+            rgba(0, 0, 0, .25);
+        z-index: -1;
+        pointer-events: none;
+    }
 
-        .app { display: flex; height: 100vh; height: 100dvh; }
+    input, textarea, select, button {
+        font: inherit;
+        color: inherit;
+    }
+    input, textarea, select {
+        width: 100%;
+        padding: .5rem .65rem;
+        border: 1px solid var(--muted-border);
+        border-radius: 8px;
+        background: rgba(255,255,255,.06);
+        color: var(--color);
+        outline: none;
+        transition: border-color .15s, background .15s;
+        font-size: 16px !important;
+    }
+    input::placeholder, textarea::placeholder { color: var(--muted-color); }
+    input:focus, textarea:focus, select:focus {
+        border-color: var(--primary-bg);
+        background: rgba(255,255,255,.1);
+    }
+    select option { background: #1a1d24; color: #eef1f6; }
+    button {
+        cursor: pointer;
+        padding: .5rem .85rem;
+        border: 1px solid var(--muted-border);
+        border-radius: 8px;
+        background: rgba(255,255,255,.06);
+        color: var(--color);
+        transition: background .15s;
+        font-size: 16px !important;
+    }
+    button:hover { background: rgba(255,255,255,.12); }
 
-        /* ============ Боковая панель ============ */
+    .btn.secondary { background: rgba(255,255,255,.1); border-color: transparent; }
+    .btn.contrast  { background: var(--primary-bg); color: var(--primary-inverse); border-color: transparent; }
+    .btn.contrast:hover { filter: brightness(1.08); }
+
+    .app { display: flex; height: 100vh; height: 100dvh; }
+
+    /* ============ Боковая панель ============ */
+    .sidebar {
+        width: 280px;
+        flex-shrink: 0;
+            background: rgba(10, 11, 15, .85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+        border-right: 1px solid rgba(255,255,255,.08);
+        display: flex;
+        flex-direction: column;
+        transition: width .22s ease, transform .22s ease;
+        overflow: hidden;
+        z-index: 100;
+    }
+	
+    .sidebar.collapsed { width: 0; border-right: none; }
+    .sidebar-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: calc(.75rem + var(--safe-top)) .9rem .75rem .9rem;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        flex-shrink: 0;
+    }
+    .sidebar-header strong { font-size: .95rem; letter-spacing: .2px; }
+    .sidebar-content {
+        flex: 1; overflow-y: auto;
+        padding: .5rem .4rem calc(.5rem + var(--safe-bottom)) .4rem;
+    }
+
+    .icon-btn {
+        background: transparent; border: none; cursor: pointer;
+        color: inherit; border-radius: 8px;
+        width: 32px; height: 32px;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 1rem; line-height: 1;
+        transition: background .15s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,.1); }
+
+    /* ============ Дерево ============ */
+    .group-tree, .group-tree ul { list-style: none; margin: 0; padding-left: 0; }
+    .group-tree ul { padding-left: 1rem; }
+    .group-node {
+        cursor: pointer; padding: .35rem .45rem; border-radius: 8px;
+        display: flex; align-items: center; gap: 4px;
+        font-size: .85rem; user-select: none;
+        transition: background .15s;
+    }
+    .group-node:hover { background: rgba(255,255,255,.06); }
+    .group-node.active {
+        background: var(--primary-bg);
+        color: var(--primary-inverse);
+    }
+    .group-toggle {
+        width: 18px; height: 18px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .65rem; opacity: .55; cursor: pointer;
+        transition: transform .15s;
+    }
+    .group-toggle.expanded { transform: rotate(90deg); }
+    .group-toggle.empty { visibility: hidden; }
+    .group-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .group-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+    .group-node:hover .group-actions { opacity: 1; }
+    .group-actions button {
+        padding: 0 3px; font-size: .7rem; line-height: 1.4;
+        background: transparent; border: 1px solid currentColor;
+        border-radius: 4px; color: inherit; cursor: pointer;
+    }
+    .group-actions button:hover { background: rgba(255,255,255,.15); }
+
+    /* ============ Основная область ============ */
+    .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* Экран открытия */
+    #open-section {
+        display: flex; align-items: center; justify-content: center;
+        padding: calc(1.5rem + var(--safe-top)) 1.5rem calc(1.5rem + var(--safe-bottom)) 1.5rem;
+        flex: 1;
+    }
+    .open-card {
+        width: 100%; max-width: 440px;
+        background: var(--panel);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 1.75rem;
+    }
+    .open-card h2 { margin: 0 0 .25rem; font-size: 1.35rem; }
+    .open-card p { margin: 0 0 1.25rem; color: var(--muted-color); font-size: .85rem; }
+    .open-card label { font-size: .8rem; font-weight: 600; display: block; margin-bottom: .35rem; }
+    .open-card input { margin-bottom: .75rem; }
+    .open-card button { width: 100%; margin-top: .25rem; }
+
+    /* Шапка */
+    .main-header {
+        display: flex; align-items: center; gap: .5rem;
+        padding: calc(.6rem + var(--safe-top)) calc(.9rem + var(--safe-right)) .6rem calc(.9rem + var(--safe-left));
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        background: var(--panel-solid);
+        flex-shrink: 0;
+    }
+    .main-header h3 {
+        margin: 0; flex: 1; font-size: .95rem;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .main-header .btn {
+        padding: .4rem .8rem; font-size: .8rem; border-radius: 8px;
+        white-space: nowrap;
+    }
+
+    /* Контент */
+    .main-content { flex: 1; display: flex; overflow: hidden; }
+
+    .entries-pane {
+        flex: 1; overflow-y: auto; padding: .75rem; min-width: 0;
+        padding-bottom: calc(.75rem + var(--safe-bottom));
+        background: var(--panel-solid);
+        border-right: 1px solid rgba(255,255,255,.08);
+    }
+    .entries-pane.with-editor {
+        flex: 0 0 340px;
+    }
+
+    /* ============ Записи ============ */
+    .entry-item {
+        cursor: pointer; padding: .6rem .75rem;
+        border-radius: 10px; margin-bottom: 4px;
+        transition: background .15s;
+        border: 1px solid transparent;
+    }
+    .entry-item:hover { background: rgba(255,255,255,.06); }
+    .entry-item.active {
+        background: var(--primary-bg);
+        color: var(--primary-inverse);
+        border-color: transparent;
+    }
+    .entry-item.active .meta-text { color: rgba(255,255,255,.8); }
+    .entry-item strong { font-size: .9rem; display: block; font-weight: 600; }
+    .meta-text { font-size: .75rem; color: var(--muted-color); margin-top: 2px; }
+    .empty-state {
+        text-align: center; padding: 2rem 1rem; color: var(--muted-color);
+        font-size: .85rem;
+    }
+
+    /* ============ Редактор ============ */
+    .editor-pane {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: transparent;
+        overflow: hidden;
+        position: relative;
+        isolation: isolate;
+        clip-path: inset(0);
+    }
+    .editor-pane.hidden { display: none !important; }
+
+    /* Фон редактора = точная копия body::before */
+    .editor-pane::before {
+        content: "";
+        position: fixed;
+        inset: -20px;
+        background: url('./lib/2.jpg') center / cover no-repeat;
+        filter: blur(18px) saturate(1.15) brightness(1);
+        transform: scale(1.06);
+        z-index: -2;
+        pointer-events: none;
+    }
+    .editor-pane::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+            radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,.5) 100%),
+            rgba(0, 0, 0, .25);
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    .editor-header {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        padding: calc(.6rem + var(--safe-top)) calc(.9rem + var(--safe-right)) .6rem calc(.9rem + var(--safe-left));
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        background: var(--panel-solid);
+        flex-shrink: 0;
+    }
+    .editor-header h4 {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+        font-size: .95rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .back-btn {
+        background: transparent;
+        border: 1px solid var(--muted-border);
+        border-radius: 8px;
+        padding: .3rem .7rem;
+        font-size: .8rem;
+        cursor: pointer;
+        color: inherit;
+        white-space: nowrap;
+        transition: background .15s;
+        flex-shrink: 0;
+    }
+    .back-btn:hover { background: rgba(255,255,255,.1); }
+
+    .editor-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 1rem;
+        background: rgba(15, 17, 21, .55);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+    }
+
+    #noSelection {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        color: var(--muted-color);
+    }
+
+    #editForm {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #editForm.hidden { display: none !important; }
+
+    #editForm .field-group {
+        margin-bottom: .8rem;
+        flex-shrink: 0;
+    }
+    #editForm .field-group:last-child {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 0;
+        overflow: hidden;
+    }
+
+    .field-group label {
+        font-size: .78rem;
+        font-weight: 600;
+        display: block;
+        margin-bottom: .25rem;
+        color: var(--muted-color);
+        flex-shrink: 0;
+    }
+    .field-group input,
+    .field-group textarea,
+    .field-group select {
+        margin-bottom: 0;
+    }
+
+    #fTitle {
+        border: none;
+        background: transparent;
+        box-shadow: none;
+        padding: .25rem .1rem;
+        font-size: 1.15rem;
+        font-weight: 600;
+        flex-shrink: 0;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        border-radius: 0;
+    }
+    #fTitle:focus {
+        outline: none;
+        box-shadow: none;
+        border-bottom-color: var(--primary-bg);
+        background: transparent;
+    }
+
+    #fNotes {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        resize: none;
+        overflow-y: auto;
+        border: none;
+        background: rgba(255,255,255,.04);
+        border-radius: 8px;
+        padding: .6rem .7rem;
+        line-height: 1.5;
+    }
+    #fNotes:focus {
+        outline: none;
+        box-shadow: none;
+        background: rgba(255,255,255,.07);
+    }
+
+    /* ============ Оверлей ============ */
+    .overlay {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 90;
+        opacity: 0; pointer-events: none;
+        transition: opacity .2s;
+    }
+    .overlay.visible { opacity: 1; pointer-events: auto; }
+
+    .hidden { display: none !important; }
+
+    /* ============ Мобильная адаптация ============ */
+    @media (max-width: 768px) {
+        body { overflow: hidden; }
         .sidebar {
+            position: fixed; top: 0; left: 0; height: 100vh; height: 100dvh;
+            width: 280px; transform: translateX(0);
+            box-shadow: 4px 0 24px rgba(0,0,0,.35);
+        }
+        .sidebar.collapsed {
+            transform: translateX(-100%);
             width: 280px;
-            flex-shrink: 0;
-            background: var(--panel);
-            border-right: var(--border);
-            display: flex;
-            flex-direction: column;
-            transition: width .22s ease, transform .22s ease;
-            overflow: hidden;
-            z-index: 100;
         }
-        .sidebar.collapsed { width: 0; border-right: none; }
-        .sidebar-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: calc(.75rem + var(--safe-top)) .9rem .75rem .9rem;
-            border-bottom: var(--border);
-            flex-shrink: 0;
-        }
-        .sidebar-header strong { font-size: .95rem; letter-spacing: .2px; }
-        .sidebar-content {
-            flex: 1; overflow-y: auto;
-            padding: .5rem .4rem calc(.5rem + var(--safe-bottom)) .4rem;
-        }
+        .main-area { width: 100%; }
 
-        .icon-btn {
-            background: transparent; border: none; cursor: pointer;
-            color: inherit; border-radius: 8px;
-            width: 32px; height: 32px;
-            display: inline-flex; align-items: center; justify-content: center;
-            font-size: 1rem; line-height: 1;
-            transition: background .15s;
-        }
-        .icon-btn:hover { background: var(--secondary-bg); }
+        .entries-pane.with-editor { flex: 1; border-right: none; }
 
-        /* ============ Дерево ============ */
-        .group-tree, .group-tree ul { list-style: none; margin: 0; padding-left: 0; }
-        .group-tree ul { padding-left: 1rem; }
-        .group-node {
-            cursor: pointer; padding: .35rem .45rem; border-radius: 8px;
-            display: flex; align-items: center; gap: 4px;
-            font-size: .85rem; user-select: none;
-            transition: background .15s;
-        }
-        .group-node:hover { background: var(--secondary-bg); }
-        .group-node.active {
-            background: var(--primary-bg);
-            color: var(--primary-inverse);
-        }
-        .group-toggle {
-            width: 18px; height: 18px; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center;
-            font-size: .65rem; opacity: .55; cursor: pointer;
-            transition: transform .15s;
-        }
-        .group-toggle.expanded { transform: rotate(90deg); }
-        .group-toggle.empty { visibility: hidden; }
-        .group-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .group-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
-        .group-node:hover .group-actions { opacity: 1; }
-        .group-actions button {
-            padding: 0 3px; font-size: .7rem; line-height: 1.4;
-            background: transparent; border: 1px solid currentColor;
-            border-radius: 4px; color: inherit; cursor: pointer;
-        }
-        .group-actions button:hover { background: rgba(128,128,128,.2); }
-
-        /* ============ Основная область ============ */
-        .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-
-        /* Экран открытия */
-        #open-section {
-            display: flex; align-items: center; justify-content: center;
-            padding: calc(1.5rem + var(--safe-top)) 1.5rem calc(1.5rem + var(--safe-bottom)) 1.5rem;
-            flex: 1;
-        }
-        .open-card {
-            width: 100%; max-width: 440px;
-            background: var(--panel);
-            border: var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 1.75rem;
-        }
-        .open-card h2 { margin: 0 0 .25rem; font-size: 1.35rem; }
-        .open-card p { margin: 0 0 1.25rem; opacity: .65; font-size: .85rem; }
-        .open-card label { font-size: .8rem; font-weight: 600; display: block; }
-        .open-card input { margin-bottom: .75rem; }
-        .open-card button { width: 100%; margin-top: .25rem; }
-
-        /* Шапка */
-        .main-header {
-            display: flex; align-items: center; gap: .5rem;
-            padding: calc(.6rem + var(--safe-top)) calc(.9rem + var(--safe-right)) .6rem calc(.9rem + var(--safe-left));
-            border-bottom: var(--border);
-            background: var(--panel);
-            flex-shrink: 0;
-        }
-        .main-header h3 {
-            margin: 0; flex: 1; font-size: .95rem;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .main-header .btn {
-            padding: .35rem .7rem; font-size: .8rem; border-radius: 8px;
-            white-space: nowrap;
-        }
-
-        /* Контент */
-/* Контент */
-.main-content { flex: 1; display: flex; overflow: hidden; }
-
-.entries-pane {
-    flex: 1; overflow-y: auto; padding: .75rem; min-width: 0;
-    padding-bottom: calc(.75rem + var(--safe-bottom));
-    background: var(--panel);          /* ← было transparent */
-    border-right: var(--border);       /* ← разделитель, чтобы не сливалось */
-}
-
-.entries-pane.with-editor {
-    flex: 0 0 340px;
-}
-
-        /* ============ Записи ============ */
-        .entry-item {
-            cursor: pointer; padding: .55rem .7rem;
-            border-radius: 10px; margin-bottom: 3px;
-            transition: background .15s;
-        }
-        .entry-item:hover { background: var(--secondary-bg); }
-        .entry-item.active {
-            background: var(--primary-bg);
-            color: var(--primary-inverse);
-        }
-        .entry-item strong { font-size: .88rem; display: block; }
-        .meta-text { font-size: .75rem; opacity: .65; }
-        .empty-state {
-            text-align: center; padding: 2rem 1rem; opacity: .55;
-            font-size: .85rem;
-        }
-
-        /* ============ Редактор ============ */
-/* ============ Редактор ============ */
-.editor-pane {
-    flex: 1; min-width: 0;
-    display: flex; flex-direction: column;
-    background: var(--panel);          /* ← было var(--bg) (transparent) */
-    min-height: 0;
-}
-        .editor-pane.hidden { display: none; }
-
-        .editor-header {
-            display: flex; align-items: center; gap: .6rem;
-            padding: calc(.6rem + var(--safe-top)) calc(.9rem + var(--safe-right)) .6rem calc(.9rem + var(--safe-left));
-            border-bottom: var(--border);
-            background: var(--panel);
-            flex-shrink: 0;
-        }
-        .editor-header h4 {
-            margin: 0; flex: 1; font-size: .95rem;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .back-btn {
-            background: transparent; border: var(--border);
-            border-radius: 8px; padding: .3rem .7rem;
-            font-size: .8rem; cursor: pointer; color: inherit;
-            white-space: nowrap;
-            transition: background .15s;
-        }
-        .back-btn:hover { background: var(--secondary-bg); }
-
-        .editor-body {
-            flex: 1; min-height: 0;
-            display: flex; flex-direction: column;
-            overflow: hidden;
-            padding: 1rem;
-        }
-        #editForm {
-            flex: 1; min-height: 0;
-            display: flex; flex-direction: column;
-        }
-        #editForm .field-group:first-child { flex-shrink: 0; }
-        #editForm .field-group:last-child {
-            flex: 1; min-height: 0;
-            display: flex; flex-direction: column;
-            margin-bottom: 0;
-        }
-        .field-group { margin-bottom: .8rem; }
-        .field-group label {
-            font-size: .78rem; font-weight: 600;
-            display: block; margin-bottom: .2rem; opacity: .8;
-        }
-        .field-group input,
-        .field-group textarea,
-        .field-group select {
-            margin-bottom: 0;
-        }
-
-        #fTitle {
-            border: none;
-            background: transparent;
-            box-shadow: none;
-            padding: .25rem .1rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-        #fTitle:focus {
-            outline: none;
-            box-shadow: none;
-            border: none;
+        .editor-pane {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            width: 100dvw;
             background: transparent;
         }
+        .editor-pane.hidden { display: none !important; }
 
-        #fNotes {
-            flex: 1;
-            min-height: 0;
-            width: 100%;
-            resize: none;
-            overflow-y: auto;
-            border: none;
-            background: transparent;
-            box-shadow: none;
-            padding: .25rem .1rem;
-        }
-        #fNotes:focus {
-            outline: none;
-            box-shadow: none;
-            border: none;
-            background: transparent;
-        }
-
-        /* ============ Оверлей ============ */
-        .overlay {
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,.4);
-            z-index: 90;
-            opacity: 0; pointer-events: none;
-            transition: opacity .2s;
-        }
-        .overlay.visible { opacity: 1; pointer-events: auto; }
-
-        .hidden { display: none !important; }
-
-        /* ============ Мобильная адаптация ============ */
-        @media (max-width: 768px) {
-            body { overflow: hidden; }
-            .sidebar {
-                position: fixed; top: 0; left: 0; height: 100vh; height: 100dvh;
-                width: 280px; transform: translateX(0);
-                box-shadow: 4px 0 24px rgba(0,0,0,.18);
-            }
-            .sidebar.collapsed {
-                transform: translateX(-100%);
-                width: 280px;
-            }
-            .main-area { width: 100%; }
-
-            .entries-pane.with-editor { flex: 1; border-right: none; }
-
-            .editor-pane {
-                position: fixed; inset: 0; z-index: 200;
-                background: var(--bg);
-                height: 100vh; height: 100dvh;
-            }
-            .editor-pane.hidden { display: none; }
-
-            .main-header .btn { padding: .3rem .55rem; font-size: .75rem; }
-            .main-header h3 { font-size: .85rem; }
-        }
-    </style>
+        .main-header .btn { padding: .3rem .55rem; font-size: .75rem; }
+        .main-header h3 { font-size: .85rem; }
+    }
+</style>
 </head>
 <body>
 <div class="app">
@@ -399,7 +491,7 @@ body::after {
                 <label>Мастер-пароль
                     <input type="password" id="masterPassword" placeholder="••••••••">
                 </label>
-                <button id="openBtn">Открыть</button>
+                <button id="openBtn" class="btn contrast">Открыть</button>
             </div>
         </div>
 
