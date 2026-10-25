@@ -587,6 +587,7 @@ $('allEntriesItem').addEventListener('click', () => {
     showingAllEntries = true;
     currentGroupUuid = db.rootGroupUuid;
     closeEditor();
+	renderGroups();                    // ← добавить: перестроит дерево, active с групп снимется
     updateCurrentGroupName();
     renderEntries();
     highlightActiveSidebarItem('allEntriesItem');
@@ -757,7 +758,7 @@ function renderGroups() {
     if (showingAllEntries) {
         highlightActiveSidebarItem('allEntriesItem');
     } else {
-        highlightActiveSidebarItem(null);
+        $('allEntriesItem').classList.remove('active');  // снимаем только с "Все записи"
     }
 }
 
