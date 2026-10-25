@@ -472,12 +472,13 @@
             </div>
         </div>
         <div class="sidebar-content">
-            <div class="group-node" id="allEntriesItem" style="font-weight:600;">
-                <span class="group-toggle empty"></span>
-                <span class="group-name">Все записи</span>
-            </div>
-            <ul id="groupTree" class="group-tree"></ul>
-        </div>
+    <div class="group-node" id="allEntriesItem"
+         style="font-weight: 700; color: red;">
+        <span class="group-toggle empty"></span>
+        <span class="group-name">Все записи</span>
+    </div>
+    <ul id="groupTree" class="group-tree"></ul>
+</div>
     </aside>
 
     <div class="main-area">
@@ -731,7 +732,7 @@ function renderGroups() {
         const rootLi = document.createElement('li');
         const rootDiv = document.createElement('div');
         rootDiv.className = 'group-node' + (rootGroup.uuid === currentGroupUuid ? ' active' : '');
-        rootDiv.innerHTML = `<strong class="group-name">${escapeHtml(rootGroup.name)}</strong>`;
+        rootDiv.innerHTML = `<strong class="group-name">Корень</strong>`;
         rootDiv.addEventListener('click', (e) => {
             e.stopPropagation();
             showingAllEntries = false;
