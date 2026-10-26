@@ -241,23 +241,32 @@
     /* Контент */
     .main-content { flex: 1; display: flex; overflow: hidden; }
 
-    .entries-pane {
-        flex: 1; overflow-y: auto; padding: .75rem; min-width: 0;
-        padding-bottom: calc(.75rem + var(--safe-bottom));
-        background: var(--panel-solid);
-        border-right: 1px solid rgba(255,255,255,.08);
-    }
+.entries-pane {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;      /* ← запретить горизонтальный скролл */
+    padding: .75rem;
+    min-width: 0;            /* ← ключевое для flex */
+    padding-bottom: calc(.75rem + var(--safe-bottom));
+    background: var(--panel-solid);
+    border-right: 1px solid rgba(255,255,255,.08);
+}
     .entries-pane.with-editor {
         flex: 0 0 340px;
     }
 
     /* ============ Записи ============ */
-    .entry-item {
-        cursor: pointer; padding: .6rem .75rem;
-        border-radius: 10px; margin-bottom: 4px;
-        transition: background .15s;
-        border: 1px solid transparent;
-    }
+.entry-item {
+    cursor: pointer;
+    padding: .6rem .75rem;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    transition: background .15s;
+    border: 1px solid transparent;
+    min-width: 0;            /* ← flex-элемент может сжиматься */
+    overflow: hidden;        /* ← не выпускает содержимое за границы */
+    word-break: break-word;  /* ← длинные слова переносятся, если надо */
+}
     .entry-item:hover { background: rgba(255,255,255,.06); }
     .entry-item.active {
         background: var(--primary-bg);
@@ -265,7 +274,14 @@
         border-color: transparent;
     }
     .entry-item.active .meta-text { color: rgba(255,255,255,.8); }
-    .entry-item strong { font-size: .9rem; display: block; font-weight: 600; }
+    .entry-item strong {
+    font-size: .9rem;
+    display: block;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
     .meta-text { font-size: .75rem; color: var(--muted-color); margin-top: 2px; }
     .empty-state {
         text-align: center; padding: 2rem 1rem; color: var(--muted-color);
