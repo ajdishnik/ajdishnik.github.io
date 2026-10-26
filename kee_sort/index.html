@@ -147,23 +147,43 @@
     /* ============ Дерево ============ */
     .group-tree, .group-tree ul { list-style: none; margin: 0; padding-left: 0; }
     .group-tree ul { padding-left: 1rem; }
-    .group-node {
-        cursor: pointer; padding: .35rem .45rem; border-radius: 8px;
-        display: flex; align-items: center; gap: 4px;
-        font-size: .85rem; user-select: none;
-        transition: background .15s;
-    }
+.group-node {
+    cursor: pointer;
+    padding: .35rem .45rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: .85rem;
+    user-select: none;
+    transition: background .15s;
+    min-height: 40px;              /* <-- добавить */
+    -webkit-tap-highlight-color: transparent;  /* <-- убрать серую вспышку на iOS */
+}
+.group-node:active { background: rgba(255,255,255,.12); }
     .group-node:hover { background: rgba(255,255,255,.06); }
     .group-node.active {
         background: var(--primary-bg);
         color: var(--primary-inverse);
     }
-    .group-toggle {
-        width: 18px; height: 18px; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center;
-        font-size: .65rem; opacity: .55; cursor: pointer;
-        transition: transform .15s;
-    }
+.group-toggle {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    opacity: .7;
+    cursor: pointer;
+    transition: transform .15s, background .15s;
+    border-radius: 8px;
+    /* НЕ выходим за пределы строки */
+    margin: 0;
+}
+.group-toggle:active { background: rgba(255,255,255,.14); }
+	
+	
     .group-toggle.expanded { transform: rotate(90deg); }
     .group-toggle.empty { visibility: hidden; }
     .group-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -607,6 +627,14 @@ $('toggleSidebarBtn').addEventListener('click', () => {
 $('closeSidebarBtn').addEventListener('click', closeSidebar);
 overlay.addEventListener('click', closeSidebar);
 
+function highlightActiveSidebarItem(id) {
+    document.querySelectorAll('#groupTree .group-node').forEach(el => el.classList.remove('active'));
+    $('allEntriesItem').classList.remove('active');
+    const el = $(id);
+    if (el) el.classList.add('active');
+}
+
+
 $('allEntriesItem').addEventListener('click', () => {
     if (!db) return;
     showingAllEntries = true;
@@ -652,10 +680,12 @@ function updateCurrentGroupName() {
     $('currentGroupName').textContent = g ? g.name : 'Записи';
 }
 
-function highlightActiveSidebarItem(id) {
+function highlightActiveGroup(groupUuid) {
     document.querySelectorAll('#groupTree .group-node').forEach(el => el.classList.remove('active'));
+    // построчный поиск: активный — тот, у кого data-uuid совпадает
+    const target = document.querySelector(`#groupTree .group-node[data-uuid="${groupUuid}"]`);
+    if (target) target.classList.add('active');
     $('allEntriesItem').classList.remove('active');
-    if (id) $(id).classList.add('active');
 }
 
 function renderGroups() {
@@ -670,6 +700,7 @@ function renderGroups() {
     const tree = $('groupTree');
     tree.innerHTML = '';
 
+    // Автораскрытие пути до текущей группы
     let parent = groups.find(g => g.uuid === currentGroupUuid);
     while (parent && parent.parentId) {
         expandedGroups.add(parent.parentId);
@@ -681,25 +712,25 @@ function renderGroups() {
         const li = document.createElement('li');
         const div = document.createElement('div');
         div.className = 'group-node' + (group.uuid === currentGroupUuid ? ' active' : '');
+        div.dataset.uuid = group.uuid;
 
         const children = childrenMap.get(group.uuid) || [];
+
+        // --- треугольник ---
         const toggle = document.createElement('span');
         toggle.className = 'group-toggle' + (children.length ? '' : ' empty');
         if (expandedGroups.has(group.uuid)) toggle.classList.add('expanded');
         toggle.textContent = '▶';
-        toggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (expandedGroups.has(group.uuid)) expandedGroups.delete(group.uuid);
-            else expandedGroups.add(group.uuid);
-            renderGroups();
-        });
+        toggle.dataset.toggle = '1';
         div.appendChild(toggle);
 
+        // --- имя ---
         const nameSpan = document.createElement('span');
         nameSpan.className = 'group-name';
         nameSpan.textContent = group.name;
         div.appendChild(nameSpan);
 
+        // --- кнопки ✎ / ✕ ---
         const actions = document.createElement('span');
         actions.className = 'group-actions';
 
@@ -732,60 +763,92 @@ function renderGroups() {
         }
         div.appendChild(actions);
 
+        // --- вложенный список создаём ЗАРАНЕЕ (важно!) ---
+        let ul = null;
+        if (children.length) {
+            ul = document.createElement('ul');
+            children.forEach(c => buildNode(c, ul));
+            ul.hidden = !expandedGroups.has(group.uuid);
+        }
+
+        // --- ОДИН обработчик на строку ---
         div.addEventListener('click', (e) => {
             e.stopPropagation();
+
+            // Тап по треугольнику → раскрыть/свернуть без перерисовки
+            if (e.target.closest('[data-toggle="1"]')) {
+                if (!ul) return;
+                const isExpanded = expandedGroups.has(group.uuid);
+                if (isExpanded) {
+                    expandedGroups.delete(group.uuid);
+                    ul.hidden = true;
+                    toggle.classList.remove('expanded');
+                } else {
+                    expandedGroups.add(group.uuid);
+                    ul.hidden = false;
+                    toggle.classList.add('expanded');
+                }
+                return;
+            }
+
+            // Иначе — выбор группы
             showingAllEntries = false;
             currentGroupUuid = group.uuid;
             closeEditor();
-            renderGroups();
             renderEntries();
             updateCurrentGroupName();
+            highlightActiveGroup(group.uuid);
             if (isMobile()) closeSidebar();
         });
 
         li.appendChild(div);
-
-        if (children.length && expandedGroups.has(group.uuid)) {
-            const ul = document.createElement('ul');
-            children.forEach(c => buildNode(c, ul));
-            li.appendChild(ul);
-        }
+        if (ul) li.appendChild(ul);
         container.appendChild(li);
     }
 
+    // --- корень ---
     const rootGroup = db.getGroup(db.rootGroupUuid);
     if (rootGroup) {
         const rootLi = document.createElement('li');
         const rootDiv = document.createElement('div');
         rootDiv.className = 'group-node' + (rootGroup.uuid === currentGroupUuid ? ' active' : '');
+        rootDiv.dataset.uuid = rootGroup.uuid;
         rootDiv.innerHTML = `<strong class="group-name">Корень</strong>`;
+
+        const rootChildren = childrenMap.get(rootGroup.uuid) || [];
+        let rootUl = null;
+        if (rootChildren.length) {
+            rootUl = document.createElement('ul');
+            rootChildren.forEach(c => buildNode(c, rootUl));
+            rootUl.hidden = !expandedGroups.has(rootGroup.uuid);
+        }
+
         rootDiv.addEventListener('click', (e) => {
             e.stopPropagation();
             showingAllEntries = false;
             currentGroupUuid = rootGroup.uuid;
             closeEditor();
-            renderGroups();
             renderEntries();
             updateCurrentGroupName();
+            highlightActiveGroup(rootGroup.uuid);
             if (isMobile()) closeSidebar();
         });
-        rootLi.appendChild(rootDiv);
 
-        const rootChildren = childrenMap.get(rootGroup.uuid) || [];
-        if (rootChildren.length && expandedGroups.has(rootGroup.uuid)) {
-            const ul = document.createElement('ul');
-            rootChildren.forEach(c => buildNode(c, ul));
-            rootLi.appendChild(ul);
-        }
+        rootLi.appendChild(rootDiv);
+        if (rootUl) rootLi.appendChild(rootUl);
         tree.appendChild(rootLi);
     }
 
     if (showingAllEntries) {
         highlightActiveSidebarItem('allEntriesItem');
     } else {
-        $('allEntriesItem').classList.remove('active');  // снимаем только с "Все записи"
+        $('allEntriesItem').classList.remove('active');
     }
 }
+
+
+
+
 
 function handleDeleteGroup(uuid, name) {
     if (uuid === db.rootGroupUuid) { alert('Нельзя удалить корневую группу.'); return; }
@@ -897,10 +960,9 @@ document.addEventListener('keydown', (e) => {
 
 
 document.addEventListener('touchstart', (e) => {
-    if (!e.target.closest('input, textarea, select')) {
-        if (document.activeElement) {
-            document.activeElement.blur();
-        }
+    if (e.target.closest('input, textarea, select, button, a, [contenteditable]')) return;
+    if (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
+        document.activeElement.blur();
     }
 }, { passive: true });
 
