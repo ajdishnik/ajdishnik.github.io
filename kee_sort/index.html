@@ -307,6 +307,8 @@
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+	
+
     .back-btn {
         background: transparent;
         border: 1px solid var(--muted-border);
@@ -891,6 +893,17 @@ $('closeEditorBtn').addEventListener('click', closeEditor);
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('editorPane').classList.contains('hidden')) closeEditor();
 });
+
+
+
+document.addEventListener('touchstart', (e) => {
+    if (!e.target.closest('input, textarea, select')) {
+        if (document.activeElement) {
+            document.activeElement.blur();
+        }
+    }
+}, { passive: true });
+
 
 function populateGroupSelect(selectedGroupUuid) {
     const sel = $('fGroupSelect');
