@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#111">
+<title>Vault</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #111; color: #eee;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin: 8px 0 20px; text-align: center; }
+  .card {
+    background: #1c1c1e; border-radius: 14px; padding: 16px; margin-bottom: 14px;
+  }
+  input {
+    width: 100%; padding: 14px; font-size: 16px;
+    background: #2c2c2e; color: #eee;
+    border: 1px solid #3a3a3c; border-radius: 10px;
+    outline: none;
+  }
+  input:focus { border-color: #0a84ff; }
+  button {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 600;
+    background: #0a84ff; color: white; border: none; border-radius: 10px;
+    margin-top: 10px; cursor: pointer;
+    transition: opacity .15s;
+  }
+  button:active { opacity: .7; }
+  button.secondary { background: #2c2c2e; }
+  button.danger { background: #ff453a; }
+  .row { display: flex; gap: 10px; margin-top: 10px; }
+  .row button { margin-top: 0; }
+  .item {
+    display: flex; gap: 10px; align-items: center;
+    background: #2c2c2e; border-radius: 10px; padding: 10px; margin-bottom: 10px;
+  }
+  .item code {
+    flex: 1; word-break: break-all; font-size: 14px;
+    font-family: ui-monospace, Menlo, monospace;
+    color: #eee;
+  }
+  .item button {
+    width: auto; padding: 10px 14px; margin: 0; font-size: 14px;
+    background: #0a84ff;
+  }
+  .hint { font-size: 13px; color: #888; margin-top: 8px; text-align: center; }
+  .err { color: #ff453a; font-size: 14px; margin-top: 10px; text-align: center; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔒 Vault</h1>
+
+  <!-- Экран установки мастер-пароля -->
+  <div id="setup" class="card hidden">
+    <div style="margin-bottom:10px;font-weight:600">Установите мастер-пароль</div>
+    <input id="setupPass" type="password" placeholder="Мастер-пароль" autocomplete="new-password">
+    <input id="setupPass2" type="password" placeholder="Повторите пароль" autocomplete="new-password" style="margin-top:10px">
+    <button id="setupBtn">Создать хранилище</button>
+    <div class="hint">Пароль невозможно восстановить. Запомните его!</div>
+    <div id="setupErr" class="err"></div>
+  </div>
+
+  <!-- Экран входа -->
+  <div id="login" class="card hidden">
+    <div style="margin-bottom:10px;font-weight:600">Введите мастер-пароль</div>
+    <input id="loginPass" type="password" placeholder="Мастер-пароль" autocomplete="current-password">
+    <button id="loginBtn">Открыть</button>
+    <div class="hint" id="attemptsHint">Осталось попыток: 2</div>
+    <div id="loginErr" class="err"></div>
+  </div>
+
+  <!-- Основной экран -->
+  <div id="main" class="hidden">
+    <div class="card">
+      <div style="margin-bottom:10px;font-weight:600">Добавить секрет</div>
+      <input id="newSecret" type="password" placeholder="Secret" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button id="addBtn">+ Добавить</button>
+    </div>
+
+    <div id="list"></div>
+
+    <button id="lockBtn" class="secondary">🔒 Заблокировать</button>
+    <button id="wipeBtn" class="danger">⚠️ Стереть всё хранилище</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============ Константы ============
+const LS_KEY = 'vault_v1';
+const PBKDF2_ITER = 200000;
+const MAX_ATTEMPTS = 2; // >2 = стирание (т.е. на 3-й неверной попытке)
+const ATTEMPT_KEY = 'vault_attempts';
+
+// ============ Состояние (только в ОЗУ) ============
+let masterKey = null;      // CryptoKey AES-GCM
+let salt = null;           // Uint8Array
+let secrets = [];          // [{id, value}] в открытом виде — ТОЛЬКО в памяти
+
+// ============ Утилиты кодирования ============
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+function b64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function unb64(str) {
+  return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+}
+function randBytes(n) {
+  return crypto.getRandomValues(new Uint8Array(n));
+}
+
+// ============ Криптография ============
+async function deriveKey(password, salt, usage = ['encrypt', 'decrypt']) {
+  const baseKey = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITER, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    usage
+  );
+}
+
+async function encryptJSON(key, obj) {
+  const iv = randBytes(12);
+  const data = enc.encode(JSON.stringify(obj));
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  return { iv: b64(iv), ct: b64(cipher) };
+}
+
+async function decryptJSON(key, payload) {
+  const iv = unb64(payload.iv);
+  const ct = unb64(payload.ct);
+  const data = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return JSON.parse(dec.decode(data));
+}
+
+// ============ Работа с localStorage ============
+function readLS() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function saveLS(obj) {
+  localStorage.setItem(LS_KEY, JSON.stringify(obj));
+}
+
+async function persist() {
+  if (!masterKey) return;
+  const payload = await encryptJSON(masterKey, { secrets });
+  saveLS({
+    salt: b64(salt),
+    data: payload,
+    updated: Date.now()
+  });
+}
+
+// ============ Управление попытками ============
+function getAttempts() {
+  return parseInt(localStorage.getItem(ATTEMPT_KEY) || '0', 10);
+}
+function setAttempts(n) {
+  localStorage.setItem(ATTEMPT_KEY, String(n));
+}
+function resetAttempts() {
+  localStorage.removeItem(ATTEMPT_KEY);
+}
+
+// Полное стирание
+function wipeAll(reason = '') {
+  localStorage.removeItem(LS_KEY);
+  localStorage.removeItem(ATTEMPT_KEY);
+  // Перезаписываем мусором для правдоподобия
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      salt: b64(randBytes(16)),
+      data: { iv: b64(randBytes(12)), ct: b64(randBytes(64)) },
+      wiped: true
+    }));
+    localStorage.removeItem(LS_KEY);
+  } catch {}
+  masterKey = null;
+  salt = null;
+  secrets = [];
+  renderScreen('setup');
+  if (reason) alert(reason);
+}
+
+// ============ UI ============
+const $ = id => document.getElementById(id);
+
+function renderScreen(name) {
+  ['setup', 'login', 'main'].forEach(s => $(s).classList.add('hidden'));
+  $(name).classList.remove('hidden');
+  $('newSecret').value = '';
+  $('loginPass').value = '';
+  $('setupPass').value = '';
+  $('setupPass2').value = '';
+  $('loginErr').textContent = '';
+  $('setupErr').textContent = '';
+}
+
+function renderList() {
+  const list = $('list');
+  list.innerHTML = '';
+  if (secrets.length === 0) {
+    list.innerHTML = '<div class="hint">Пока пусто</div>';
+    return;
+  }
+  secrets.forEach((s, idx) => {
+    const el = document.createElement('div');
+    el.className = 'item';
+    const code = document.createElement('code');
+    code.textContent = '•'.repeat(Math.min(s.value.length, 24));
+    const btn = document.createElement('button');
+    btn.textContent = 'Копировать';
+    btn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(s.value);
+        btn.textContent = '✓';
+        setTimeout(() => btn.textContent = 'Копировать', 1200);
+      } catch {
+        // fallback для старых мобильных
+        const ta = document.createElement('textarea');
+        ta.value = s.value;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); btn.textContent = '✓'; } catch {}
+        ta.remove();
+        setTimeout(() => btn.textContent = 'Копировать', 1200);
+      }
+    };
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.style.background = '#ff453a';
+    del.onclick = async () => {
+      secrets.splice(idx, 1);
+      await persist();
+      renderList();
+    };
+    el.appendChild(code);
+    el.appendChild(btn);
+    el.appendChild(del);
+    list.appendChild(el);
+  });
+}
+
+function updateAttemptsHint() {
+  const left = MAX_ATTEMPTS - getAttempts();
+  $('attemptsHint').textContent = left > 0
+    ? `Осталось попыток: ${left}`
+    : 'Хранилище будет стёрто при следующей ошибке';
+}
+
+// ============ Инициализация ============
+function init() {
+  const stored = readLS();
+  if (!stored || stored.wiped) {
+    renderScreen('setup');
+  } else {
+    renderScreen('login');
+    updateAttemptsHint();
+  }
+}
+
+// ============ Обработчики: setup ============
+$('setupBtn').onclick = async () => {
+  const p1 = $('setupPass').value;
+  const p2 = $('setupPass2').value;
+  const err = $('setupErr');
+  err.textContent = '';
+  if (p1.length < 1) { err.textContent = 'Минимум 6 символов'; return; }
+  if (p1 !== p2) { err.textContent = 'Пароли не совпадают'; return; }
+
+  try {
+    salt = randBytes(16);
+    masterKey = await deriveKey(p1, salt);
+    secrets = [];
+    await persist();
+    resetAttempts();
+    // очищаем поля
+    $('setupPass').value = '';
+    $('setupPass2').value = '';
+    renderScreen('main');
+    renderList();
+  } catch (e) {
+    err.textContent = 'Ошибка: ' + e.message;
+  }
+};
+
+// ============ Обработчики: login ============
+$('loginBtn').onclick = async () => {
+  const pass = $('loginPass').value;
+  const err = $('loginErr');
+  err.textContent = '';
+  const stored = readLS();
+  if (!stored) { renderScreen('setup'); return; }
+
+  try {
+    const s = unb64(stored.salt);
+    const key = await deriveKey(pass, s);
+    const decrypted = await decryptJSON(key, stored.data); // кинет при неверном пароле
+
+    // Успех
+    salt = s;
+    masterKey = key;
+    secrets = Array.isArray(decrypted.secrets) ? decrypted.secrets : [];
+    resetAttempts();
+    $('loginPass').value = '';
+    renderScreen('main');
+    renderList();
+  } catch {
+    const attempts = getAttempts() + 1;
+    setAttempts(attempts);
+    if (attempts > MAX_ATTEMPTS) {
+      wipeAll('Превышено число попыток. Все данные стёрты.');
+      return;
+    }
+    $('loginPass').value = '';
+    err.textContent = 'Неверный пароль';
+    updateAttemptsHint();
+  }
+};
+
+// Enter в поле пароля
+$('loginPass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('loginBtn').click();
+});
+
+// ============ Обработчики: main ============
+$('addBtn').onclick = async () => {
+  const val = $('newSecret').value;
+  if (!val) return;
+  secrets.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+    value: val
+  });
+  $('newSecret').value = '';
+  await persist();
+  renderList();
+};
+
+$('newSecret').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('addBtn').click();
+});
+
+$('lockBtn').onclick = () => {
+  masterKey = null;
+  secrets = [];
+  $('list').innerHTML = '';
+  renderScreen('login');
+  updateAttemptsHint();
+};
+
+$('wipeBtn').onclick = () => {
+  if (confirm('Стереть ВСЁ хранилище безвозвратно?')) {
+    wipeAll();
+  }
+};
+
+// Защита: очистка при уходе со страницы (опционально)
+window.addEventListener('pagehide', () => {
+  secrets = [];
+  masterKey = null;
+});
+
+// Запуск
+init();
+</script>
+</body>
+</html>
