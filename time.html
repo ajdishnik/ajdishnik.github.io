@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Дата и время</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+    }
+
+    .container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #datetime {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    button {
+        padding: 7px 12px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background: #f5f5f5;
+    }
+
+    button:hover {
+        background: #e5e5e5;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <span id="datetime"></span>
+    <button onclick="copyDate()">Скопировать</button>
+</div>
+
+<script>
+function updateDate() {
+    const now = new Date();
+
+    const date = now.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+    }).replace(' г.', 'г.');
+
+    const time = now.toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+
+    document.getElementById('datetime').textContent =
+        `# ${date}, ${time}`;
+}
+
+function copyDate() {
+    const text = document.getElementById('datetime').textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const button = document.querySelector('button');
+        button.textContent = 'Скопировано!';
+
+        setTimeout(() => {
+            button.textContent = 'Скопировать';
+        }, 1500);
+    }).catch(() => {
+        // Резервное копирование для локальных файлов
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+    });
+}
+
+updateDate();
+setInterval(updateDate, 1000);
+</script>
+
+</body>
+</html>
