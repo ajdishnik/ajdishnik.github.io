@@ -3,42 +3,79 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
 <title>Дата и время</title>
+
 <style>
+    * {
+        box-sizing: border-box;
+    }
+
     body {
-        font-family: Arial, sans-serif;
+        margin: 0;
         padding: 20px;
+        font-family: Arial, sans-serif;
+        background: #f4f5f7;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .container {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        width: 100%;
+        max-width: 500px;
+        background: white;
+        padding: 25px 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        text-align: center;
     }
 
     #datetime {
-        font-size: 18px;
+        font-size: clamp(21px, 5vw, 28px);
         font-weight: bold;
+        margin-bottom: 25px;
+        overflow-wrap: anywhere;
     }
 
     button {
-        padding: 7px 12px;
+        width: 100%;
+        padding: 16px;
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+        background: #2675e8;
+        border: none;
+        border-radius: 10px;
         cursor: pointer;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        background: #f5f5f5;
+        -webkit-tap-highlight-color: transparent;
     }
 
-    button:hover {
-        background: #e5e5e5;
+    button:active {
+        background: #1559bd;
+        transform: scale(0.98);
+    }
+
+    .hint {
+        margin-top: 15px;
+        color: #888;
+        font-size: 13px;
     }
 </style>
 </head>
+
 <body>
 
 <div class="container">
-    <span id="datetime"></span>
-    <button onclick="copyDate()">Скопировать</button>
+    <div id="datetime"></div>
+
+    <button id="copyButton" onclick="copyDate()">
+        📋 Скопировать
+    </button>
+
+    <div class="hint">Дата и время вашего устройства</div>
 </div>
 
 <script>
@@ -61,25 +98,26 @@ function updateDate() {
         `# ${date}, ${time}`;
 }
 
-function copyDate() {
+async function copyDate() {
     const text = document.getElementById('datetime').textContent;
+    const button = document.getElementById('copyButton');
 
-    navigator.clipboard.writeText(text).then(() => {
-        const button = document.querySelector('button');
-        button.textContent = 'Скопировано!';
-
-        setTimeout(() => {
-            button.textContent = 'Скопировать';
-        }, 1500);
-    }).catch(() => {
-        // Резервное копирование для локальных файлов
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch {
         const textarea = document.createElement('textarea');
         textarea.value = text;
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand('copy');
         textarea.remove();
-    });
+    }
+
+    button.textContent = '✓ Скопировано!';
+
+    setTimeout(() => {
+        button.textContent = '📋 Скопировать';
+    }, 1500);
 }
 
 updateDate();
