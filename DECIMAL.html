@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bitcoin DECIMAL Generator — fast sequential auto</title>
+
+<style>
+:root {
+    --bg: #0b1120;
+    --panel: #151f30;
+    --cell: #202c40;
+    --border: #2b3a50;
+    --orange: #f7931a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+}
+* { touch-action: manipulation; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+body { margin: 0; padding: 8px; background: var(--bg); color: var(--text); font-family: Arial, sans-serif; }
+.container { max-width: 760px; margin: auto; }
+.header { text-align: center; margin-bottom: 10px; }
+.header h2 { color: var(--orange); margin: 4px 0; font-size: 18px; }
+.header p { color: var(--muted); font-size: 11px; margin: 0; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px; margin-bottom: 8px; }
+.section-title { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.address-input { width: 100%; padding: 9px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: white; outline: none; font-size: 11px; font-family: monospace; }
+.address-input:focus { border-color: var(--orange); }
+.lock-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dial { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: auto; gap: 4px 6px; width: 100%; padding: 4px 0 6px; overflow: hidden; }
+.digit-col { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; justify-self: center; }
+.dial > .digit-col:nth-child(19) { grid-column: 2; }
+.dial > .digit-col:nth-child(20) { grid-column: 3; }
+.dial > .digit-col:nth-child(21) { grid-column: 4; }
+.dial > .digit-col:nth-child(22) { grid-column: 5; }
+.digit-col .pos-num { font-size: 8px; color: var(--muted); margin-bottom: 0; line-height: 1; }
+.digit-col button { display: none; width: 100%; height: 18px; border: 1px solid var(--border); background: var(--cell); color: var(--text); border-radius: 3px; cursor: pointer; font-size: 9px; padding: 0; line-height: 1; }
+.digit-col button:hover { background: #37465d; }
+.digit-col .digit-value { width: 100%; height: 56px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-family: monospace; font-size: 26px; font-weight: bold; color: var(--orange); user-select: none; cursor: pointer; position: relative; touch-action: none; }
+.digit-col .digit-value.locked { background: #24543e; border-color: #4ade80; color: white; cursor: default; }
+.digit-col .digit-value.locked::after { content: "🔒"; position: absolute; top: -4px; right: -2px; font-size: 8px; }
+.digit-col .digit-value.active { border-color: var(--orange); }
+.digit-col .digit-value:focus { outline: 2px solid var(--orange); outline-offset: 1px; }
+.actions { display: flex; gap: 6px; margin-top: 8px; }
+button.action { flex: 1; padding: 9px 6px; border: 0; border-radius: 6px; background: var(--cell); color: white; cursor: pointer; font-size: 11px; font-weight: 600; }
+button.action:hover { background: #37465d; }
+button.primary { background: var(--orange); color: #111827; }
+button.primary:hover { background: #ffad42; }
+button.action.auto-on { background: #173e30; color: #4ade80; box-shadow: 0 0 0 1px #4ade80 inset; }
+.result { display: grid; gap: 8px; }
+.result-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.value { color: var(--orange); font-family: monospace; font-size: 11px; word-break: break-all; line-height: 1.4; }
+.copy { margin-top: 5px; padding: 6px 9px; background: var(--cell); color: white; border: 0; border-radius: 5px; cursor: pointer; font-size: 10px; }
+.status { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+/* прогресс-бар */
+.progress-wrap { margin-top: 8px; }
+.progress-bar {
+    height: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #f7931a, #ffb84d);
+    transition: width 0.2s linear;
+}
+.progress-text { font-size: 10px; color: var(--muted); margin-top: 4px; display: flex; justify-content: space-between; }
+
+.warning { color: #fbbf24; font-size: 10px; line-height: 1.4; margin: 8px 2px; }
+.modal { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.82); align-items: center; justify-content: center; padding: 12px; }
+.modal.show { display: flex; animation: fadeIn .2s ease; }
+.modal-content { width: 100%; max-width: 430px; background: #172235; border: 1px solid var(--orange); border-radius: 12px; padding: 16px; box-shadow: 0 15px 60px #0008; animation: slideUp .25s ease; }
+.modal-header { text-align: center; margin-bottom: 14px; }
+.success-icon { width: 42px; height: 42px; margin: auto auto 8px; border-radius: 50%; background: #173e30; color: #4ade80; display: grid; place-items: center; font-size: 22px; }
+.modal-header h3 { margin: 0; color: #4ade80; font-size: 16px; }
+.modal-header p { color: var(--muted); font-size: 11px; }
+.modal-field { margin-bottom: 10px; }
+.modal-field label { display: block; color: var(--muted); font-size: 10px; margin-bottom: 5px; }
+.modal-value { background: #0b1120; padding: 9px; border-radius: 6px; border: 1px solid var(--border); color: var(--orange); font-family: monospace; font-size: 10px; line-height: 1.5; word-break: break-all; }
+.modal-actions { display: grid; gap: 7px; margin-top: 14px; }
+.modal-actions button { width: 100%; padding: 10px; border: 0; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+.download-btn { background: var(--orange); color: #111827; }
+.reload-btn { background: #29384e; color: white; }
+.close-btn { background: transparent; color: var(--muted); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+@media (min-width: 600px) {
+    body { padding: 12px; }
+    .header h2 { font-size: 23px; }
+    .header p { font-size: 12px; }
+    .panel { padding: 12px; border-radius: 12px; margin-bottom: 12px; }
+    .section-title { font-size: 12px; margin-bottom: 9px; }
+    .address-input { padding: 11px; font-size: 12px; }
+    .dial { gap: 6px 4px; padding: 6px 2px 10px; }
+    .digit-col { max-width: 72px; gap: 2px; }
+    .digit-col .pos-num { font-size: 10px; margin-bottom: 1px; }
+    .digit-col button { display: block; height: 22px; font-size: 12px; border-radius: 4px; }
+    .digit-col .digit-value { aspect-ratio: 1 / 1.1; height: auto; font-size: clamp(18px, 3.2vw, 28px); border-radius: 5px; }
+    .digit-col .digit-value.locked::after { top: -6px; right: -3px; font-size: 10px; }
+    .actions { gap: 8px; margin-top: 12px; }
+    button.action { padding: 11px 8px; font-size: 12px; border-radius: 7px; }
+    .result { gap: 12px; }
+    .result-label { font-size: 11px; margin-bottom: 5px; }
+    .value { font-size: 13px; line-height: 1.5; }
+    .copy { margin-top: 7px; padding: 7px 11px; font-size: 11px; }
+    .status { font-size: 12px; margin-top: 10px; }
+    .progress-text { font-size: 11px; }
+    .warning { font-size: 11px; line-height: 1.5; margin: 12px 2px; }
+    .modal-content { padding: 22px; border-radius: 14px; }
+    .modal-header { margin-bottom: 20px; }
+    .success-icon { width: 48px; height: 48px; font-size: 25px; }
+    .modal-header h3 { font-size: 19px; }
+    .modal-header p { font-size: 12px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { font-size: 11px; margin-bottom: 7px; }
+    .modal-value { padding: 11px; font-size: 12px; line-height: 1.6; }
+    .modal-actions { gap: 9px; margin-top: 20px; }
+    .modal-actions button { padding: 12px; border-radius: 7px; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h2>₿ Bitcoin DECIMAL Generator</h2>
+        <p>Ручной режим · 22 цифры · Автоклик = быстрый последовательный перебор по свободным разрядам</p>
+    </div>
+
+    <div class="panel">
+        <div class="section-title">Bitcoin-адрес для проверки</div>
+        <input id="targetAddress" class="address-input" type="text"
+               placeholder="Введите Bitcoin Legacy Address"
+               autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="panel">
+        <div class="section-title">Кодовый замок · 22 цифры (0–9) · 2 ряда по 11</div>
+        <div class="lock-wrap">
+            <div class="dial" id="dial"></div>
+        </div>
+        <div class="actions">
+            <button class="action primary" id="randomBtn">Случайный ключ</button>
+            <button class="action" id="autoBtn">Автоклик: ВЫКЛ</button>
+            <button class="action" id="resetBtn">Сбросить</button>
+        </div>
+        <div class="status" id="lockStatus">Заблокировано: 0 / 22</div>
+    </div>
+
+    <div class="panel">
+        <div class="result">
+            <div>
+                <div class="result-label">Текущий DECIMAL-ключ (22 цифры)</div>
+                <div class="value" id="shortKey">0000000000000000000000</div>
+            </div>
+            <div>
+                <div class="result-label">HEX-ключ (64 символа)</div>
+                <div class="value" id="hexKey">0000000000000000000000000000000000000000000000000000000000000000</div>
+            </div>
+            <div>
+                <div class="result-label">Сгенерированный Bitcoin Address</div>
+                <div class="value" id="address">Ожидание...</div>
+                <button class="copy" id="copyBtn">Копировать адрес</button>
+            </div>
+        </div>
+        <div class="status" id="status">Ожидание проверки</div>
+        <div class="status" id="stats">Проверено: 0 · Уникальных: 0 · Дубликатов: 0 · 0.0 k/s</div>
+
+        <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="progress-text">
+                <span id="progressLeft">0 / 0</span>
+                <span id="progressRight">0.00%</span>
+            </div>
+        </div>
+    </div>
+
+    <p class="warning">
+        ⚠ 22 десятичные цифры обеспечивают ~71 бит энтропии (10^22 ≈ 2^73).
+        Не используйте такие ключи для хранения реальных Bitcoin-средств.
+    </p>
+
+</div>
+
+<div class="modal" id="successModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="success-icon">✓</div>
+            <h3>Адрес подтверждён!</h3>
+            <p>Сгенерированный адрес соответствует указанному адресу.</p>
+        </div>
+        <div class="modal-field">
+            <label>Bitcoin Address</label>
+            <div class="modal-value" id="modalAddress"></div>
+        </div>
+        <div class="modal-field">
+            <label>DECIMAL Private Key (22 цифры)</label>
+            <div class="modal-value" id="modalKey"></div>
+        </div>
+        <div class="modal-field">
+            <label>HEX Private Key (64 символа)</label>
+            <div class="modal-value" id="modalHex"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="download-btn" id="downloadBtn">↓ Скачать результат TXT</button>
+            <button class="reload-btn" id="reloadBtn">↻ Обновить страницу</button>
+            <button class="close-btn" id="closeBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   Воркер
+   ============================================================ */
+function workerCode() {
+return `
+const P  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const N  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+const mod = (a, m) => { const r = a % m; return r >= 0n ? r : r + m; };
+
+function modInv(a, m) {
+  let old_r = mod(a, m), r = m, old_s = 1n, s = 0n;
+  while (r !== 0n) {
+    const q = old_r / r;
+    const tr = old_r - q * r; old_r = r; r = tr;
+    const ts = old_s - q * s; old_s = s; s = ts;
+  }
+  if (old_r !== 1n) throw new Error('no inverse');
+  return mod(old_s, m);
+}
+function add(A, B) {
+  if (!A) return B; if (!B) return A;
+  const [x1,y1] = A, [x2,y2] = B;
+  let l;
+  if (x1 === x2) {
+    if (mod(y1 + y2, P) === 0n) return null;
+    l = mod(3n * x1 * x1 * modInv(2n * y1, P), P);
+  } else {
+    l = mod((y2 - y1) * modInv(mod(x2 - x1, P), P), P);
+  }
+  const x3 = mod(l * l - x1 - x2, P);
+  return [x3, mod(l * (x1 - x3) - y1, P)];
+}
+function mulG(k) {
+  k = mod(k, N);
+  let R = null, Q = [Gx, Gy];
+  while (k > 0n) { if (k & 1n) R = add(R, Q); Q = add(Q, Q); k >>= 1n; }
+  return R;
+}
+function dbl(X, Y, Z) {
+  if (Z === 0n) return [0n, 0n, 0n];
+  const YY = mod(Y*Y, P), S = mod(4n*X*YY, P), M = mod(3n*X*X, P);
+  return [mod(M*M - 2n*S, P), mod(M*(S - mod(M*M - 2n*S, P)) - 8n*YY*YY, P), mod(2n*Y*Z, P)];
+}
+function jacAdd(X1, Y1, Z1, x2, y2) {
+  if (Z1 === 0n) return [x2, y2, 1n];
+  const Z2 = mod(Z1*Z1, P), U = mod(x2*Z2, P), S = mod(y2*Z1*Z2, P);
+  const H = mod(U - X1, P), R = mod(S - Y1, P);
+  if (H === 0n) return R === 0n ? dbl(X1, Y1, Z1) : [0n, 0n, 0n];
+  const HH = mod(H*H, P), HHH = mod(H*HH, P), V = mod(X1*HH, P);
+  const X3 = mod(R*R - HHH - 2n*V, P);
+  return [X3, mod(R*(V - X3) - Y1*HHH, P), mod(Z1*H, P)];
+}
+function batchAff(xs, ys, zs) {
+  const n = xs.length, p = new Array(n);
+  let acc = 1n;
+  for (let i = 0; i < n; i++) { p[i] = acc; acc = mod(acc * zs[i], P); }
+  let inv = modInv(acc, P);
+  const ax = new Array(n), ay = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    const zi = mod(inv * p[i], P);
+    inv = mod(inv * zs[i], P);
+    const z2 = mod(zi*zi, P), z3 = mod(z2*zi, P);
+    ax[i] = mod(xs[i]*z2, P);
+    ay[i] = mod(ys[i]*z3, P);
+  }
+  return [ax, ay];
+}
+
+const SHA_K = new Uint32Array([
+  0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+]);
+const SHA_BUF = new Uint8Array(64);
+const SHA_DV  = new DataView(SHA_BUF.buffer);
+const SHA_OUT = new Uint8Array(32);
+const SHA_ODV = new DataView(SHA_OUT.buffer);
+const SHA_W   = new Uint32Array(64);
+
+function sha256_33(msg) {
+  SHA_DV.setUint32(0, (msg[0]<<24) | (msg[1]<<16) | (msg[2]<<8) | msg[3], false);
+  SHA_DV.setUint32(4, (msg[4]<<24) | (msg[5]<<16) | (msg[6]<<8) | msg[7], false);
+  SHA_DV.setUint32(8, (msg[8]<<24) | (msg[9]<<16) | (msg[10]<<8) | msg[11], false);
+  SHA_DV.setUint32(12, (msg[12]<<24) | (msg[13]<<16) | (msg[14]<<8) | msg[15], false);
+  SHA_DV.setUint32(16, (msg[16]<<24) | (msg[17]<<16) | (msg[18]<<8) | msg[19], false);
+  SHA_DV.setUint32(20, (msg[20]<<24) | (msg[21]<<16) | (msg[22]<<8) | msg[23], false);
+  SHA_DV.setUint32(24, (msg[24]<<24) | (msg[25]<<16) | (msg[26]<<8) | msg[27], false);
+  SHA_DV.setUint32(28, (msg[28]<<24) | (msg[29]<<16) | (msg[30]<<8) | msg[31], false);
+  SHA_DV.setUint32(32, msg[32] << 24, false);
+  SHA_BUF[33] = 0x80;
+  for (let i = 34; i < 56; i++) SHA_BUF[i] = 0;
+  SHA_DV.setUint32(56, 0, false);
+  SHA_DV.setUint32(60, 33*8, false);
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const K = SHA_K, W = SHA_W, dv = SHA_DV;
+  for (let t = 0; t < 16; t++) W[t] = dv.getUint32(t*4, false);
+  for (let t = 16; t < 64; t++) {
+    const s0 = ((W[t-15]>>>7)|(W[t-15]<<25))^((W[t-15]>>>18)|(W[t-15]<<14))^(W[t-15]>>>3);
+    const s1 = ((W[t-2]>>>17)|(W[t-2]<<15))^((W[t-2]>>>19)|(W[t-2]<<13))^(W[t-2]>>>10);
+    W[t] = (W[t-16] + s0 + W[t-7] + s1) >>> 0;
+  }
+  let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+  for (let t = 0; t < 64; t++) {
+    const S1 = ((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7));
+    const ch = (e & f) ^ (~e & g);
+    const t1 = (h + S1 + ch + K[t] + W[t]) >>> 0;
+    const S0 = ((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10));
+    const maj = (a & b) ^ (a & c) ^ (b & c);
+    const t2 = (S0 + maj) >>> 0;
+    h=g; g=f; f=e; e=(d+t1)>>>0; d=c; c=b; b=a; a=(t1+t2)>>>0;
+  }
+  h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;
+  h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;
+  SHA_ODV.setUint32(0,h0,false);SHA_ODV.setUint32(4,h1,false);SHA_ODV.setUint32(8,h2,false);SHA_ODV.setUint32(12,h3,false);
+  SHA_ODV.setUint32(16,h4,false);SHA_ODV.setUint32(20,h5,false);SHA_ODV.setUint32(24,h6,false);SHA_ODV.setUint32(28,h7,false);
+  return SHA_OUT;
+}
+
+const RMD_r1 = new Uint8Array([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13]);
+const RMD_r2 = new Uint8Array([5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11]);
+const RMD_s1 = new Uint8Array([11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6]);
+const RMD_s2 = new Uint8Array([8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11]);
+const RMD_K1 = new Uint32Array([0,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E]);
+const RMD_K2 = new Uint32Array([0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0]);
+const RMD_BUF = new Uint8Array(64);
+const RMD_DV  = new DataView(RMD_BUF.buffer);
+const RMD_OUT = new Uint8Array(20);
+const RMD_ODV = new DataView(RMD_OUT.buffer);
+const RMD_rol = (x, n) => ((x << n) | (x >>> (32 - n))) >>> 0;
+
+function ripemd160_32(msg) {
+  for (let i = 0; i < 32; i++) RMD_BUF[i] = msg[i];
+  RMD_BUF[32] = 0x80;
+  for (let i = 33; i < 56; i++) RMD_BUF[i] = 0;
+  RMD_DV.setUint32(56, 256, true);
+  RMD_DV.setUint32(60, 0, true);
+  let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;
+  const r1=RMD_r1,r2=RMD_r2,s1=RMD_s1,s2=RMD_s2,K1=RMD_K1,K2=RMD_K2,dv=RMD_DV;
+  let a=h0,b=h1,c=h2,d=h3,e=h4,A=h0,B=h1,C=h2,D=h3,E=h4;
+  for (let j = 0; j < 80; j++) {
+    const Xr1 = dv.getUint32(r1[j]*4, true);
+    const Xr2 = dv.getUint32(r2[j]*4, true);
+    let f1, f2;
+    if (j < 16)      { f1 = b^c^d;        f2 = B^(C|~D); }
+    else if (j < 32) { f1 = (b&c)|(~b&d); f2 = (B&D)|(C&~D); }
+    else if (j < 48) { f1 = (b|~c)^d;     f2 = (B|~C)^D; }
+    else if (j < 64) { f1 = (b&d)|(c&~d); f2 = (B&C)|(~B&D); }
+    else             { f1 = b^(c|~d);     f2 = B^C^D; }
+    const t  = (RMD_rol((a + f1 + Xr1 + K1[j >> 4]) >>> 0, s1[j]) + e) >>> 0;
+    a=e; e=d; d=RMD_rol(c,10); c=b; b=t;
+    const t2 = (RMD_rol((A + f2 + Xr2 + K2[j >> 4]) >>> 0, s2[j]) + E) >>> 0;
+    A=E; E=D; D=RMD_rol(C,10); C=B; B=t2;
+  }
+  const t = (h1 + c + D) >>> 0;
+  h1=(h2+d+E)>>>0; h2=(h3+e+A)>>>0; h3=(h4+a+B)>>>0; h4=(h0+b+C)>>>0; h0=t;
+  RMD_ODV.setUint32(0,h0,true);RMD_ODV.setUint32(4,h1,true);RMD_ODV.setUint32(8,h2,true);
+  RMD_ODV.setUint32(12,h3,true);RMD_ODV.setUint32(16,h4,true);
+  return RMD_OUT;
+}
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58_25(bytes) {
+  const digits = new Uint8Array(36);
+  let dlen = 0;
+  for (let i = 0; i < 25; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < dlen; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry) { digits[dlen++] = carry % 58; carry = (carry / 58) | 0; }
+  }
+  let out = '';
+  for (let i = 0; i < 25 && bytes[i] === 0; i++) out += '1';
+  for (let i = dlen - 1; i >= 0; i--) out += B58[digits[i]];
+  return out;
+}
+function b58decode(str) {
+  const map = {};
+  for (let i = 0; i < B58.length; i++) map[B58[i]] = i;
+  const bytes = [0];
+  for (let i = 0; i < str.length; i++) {
+    let c = map[str[i]];
+    if (c === undefined) throw new Error('bad b58');
+    for (let j = 0; j < bytes.length; j++) {
+      c += bytes[j] * 58;
+      bytes[j] = c & 0xff;
+      c >>= 8;
+    }
+    while (c) { bytes.push(c & 0xff); c >>= 8; }
+  }
+  let zeros = 0;
+  while (zeros < str.length && str[zeros] === '1') zeros++;
+  const out = new Uint8Array(bytes.length + zeros);
+  for (let i = 0; i < zeros; i++) out[i] = 0;
+  for (let i = 0; i < bytes.length; i++) out[out.length - 1 - i] = bytes[i];
+  return out;
+}
+
+const SHA_GEN_BUF = new Uint8Array(128);
+const SHA_GEN_DV  = new DataView(SHA_GEN_BUF.buffer);
+function sha256Any(msg) {
+  const len = msg.length, bitLen = len * 8, paddedLen = (len + 9 + 63) & ~63;
+  for (let i = 0; i < len; i++) SHA_GEN_BUF[i] = msg[i];
+  SHA_GEN_BUF[len] = 0x80;
+  for (let i = len + 1; i < paddedLen; i++) SHA_GEN_BUF[i] = 0;
+  SHA_GEN_DV.setUint32(paddedLen - 8, Math.floor(bitLen / 0x100000000), false);
+  SHA_GEN_DV.setUint32(paddedLen - 4, bitLen >>> 0, false);
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const K = SHA_K, W = SHA_W, dv = SHA_GEN_DV;
+  for (let i = 0; i < paddedLen; i += 64) {
+    for (let t = 0; t < 16; t++) W[t] = dv.getUint32(i + t*4, false);
+    for (let t = 16; t < 64; t++) {
+      const s0 = ((W[t-15]>>>7)|(W[t-15]<<25))^((W[t-15]>>>18)|(W[t-15]<<14))^(W[t-15]>>>3);
+      const s1 = ((W[t-2]>>>17)|(W[t-2]<<15))^((W[t-2]>>>19)|(W[t-2]<<13))^(W[t-2]>>>10);
+      W[t] = (W[t-16] + s0 + W[t-7] + s1) >>> 0;
+    }
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for (let t = 0; t < 64; t++) {
+      const S1 = ((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7));
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[t] + W[t]) >>> 0;
+      const S0 = ((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10));
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      h=g; g=f; f=e; e=(d+t1)>>>0; d=c; c=b; b=a; a=(t1+t2)>>>0;
+    }
+    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;
+    h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;
+  }
+  const out = new Uint8Array(32), odv = new DataView(out.buffer);
+  odv.setUint32(0,h0,false);odv.setUint32(4,h1,false);odv.setUint32(8,h2,false);odv.setUint32(12,h3,false);
+  odv.setUint32(16,h4,false);odv.setUint32(20,h5,false);odv.setUint32(24,h6,false);odv.setUint32(28,h7,false);
+  return out;
+}
+function h160ToAddr(h160) {
+  const buf = new Uint8Array(25);
+  buf[0] = 0;
+  buf.set(h160, 1);
+  const a = sha256Any(buf.subarray(0, 21));
+  const b = sha256Any(a);
+  buf[21] = b[0]; buf[22] = b[1]; buf[23] = b[2]; buf[24] = b[3];
+  return b58_25(buf);
+}
+
+function decimalToBigInt(dec) {
+  let n = 0n;
+  for (let i = 0; i < dec.length; i++) n = n * 10n + BigInt(dec.charCodeAt(i) - 48);
+  return n;
+}
+function bigToBytes32(x, out, off) {
+  for (let i = 31; i >= 0; i--) { out[off + i] = Number(x & 0xffn); x >>= 8n; }
+}
+const PUB = new Uint8Array(33);
+function addressFromBig(k) {
+  if (k <= 0n || k >= N) return null;
+  const pt = mulG(k);
+  if (!pt) return null;
+  const [x, y] = pt;
+  PUB[0] = (y & 1n) ? 0x03 : 0x02;
+  bigToBytes32(x, PUB, 1);
+  const s1 = sha256_33(PUB);
+  const h  = ripemd160_32(s1);
+  return h160ToAddr(h);
+}
+
+let running = false;
+let batch = 256;
+let targetPrefix = null;
+let prefixK = 0;
+let targetAddrGlobal = "";
+
+function setTarget(addrBase58) {
+  targetAddrGlobal = addrBase58;
+  targetPrefix = null; prefixK = 0;
+  try {
+    const bytes = b58decode(addrBase58);
+    if (bytes.length !== 25) return;
+    prefixK = 2;
+    targetPrefix = new Uint8Array(prefixK);
+    for (let i = 0; i < prefixK; i++) targetPrefix[i] = bytes[1 + i];
+  } catch { targetPrefix = null; prefixK = 0; }
+}
+
+function scanRange(startK, endK, wid, wcount) {
+  running = true;
+  const span = endK - startK + 1n;
+  const per = (span + BigInt(wcount) - 1n) / BigInt(wcount);
+  let myS = startK + BigInt(wid) * per;
+  let myE = myS + per - 1n;
+  if (myE > endK) myE = endK;
+  if (myS > endK) { self.postMessage({ type: 'scanDone', workerId: wid }); return; }
+
+  let sp = mulG(myS);
+  if (!sp) { self.postMessage({ type: 'scanDone', workerId: wid }); return; }
+  let X = sp[0], Y = sp[1], Z = 1n;
+  let k = myS;
+
+  const bX = new Array(batch), bY = new Array(batch), bZ = new Array(batch), bK = new Array(batch);
+  let lastReport = Date.now();
+  let cnt = 0;
+
+  while (running && k <= myE) {
+    let n = 0;
+    for (let i = 0; i < batch; i++) {
+      if (k > myE) break;
+      bX[n] = X; bY[n] = Y; bZ[n] = Z; bK[n] = k; n++;
+      const nx = jacAdd(X, Y, Z, Gx, Gy);
+      X = nx[0]; Y = nx[1]; Z = nx[2];
+      k += 1n;
+    }
+    if (n === 0) break;
+    bX.length = n; bY.length = n; bZ.length = n; bK.length = n;
+
+    const res = batchAff(bX, bY, bZ);
+    const aX = res[0], aY = res[1];
+
+    for (let i = 0; i < n; i++) {
+      if (!running) break;
+      PUB[0] = (aY[i] & 1n) ? 0x03 : 0x02;
+      bigToBytes32(aX[i], PUB, 1);
+      const s1 = sha256_33(PUB);
+      const h  = ripemd160_32(s1);
+
+      if (targetPrefix) {
+        let ok = true;
+        for (let t = 0; t < prefixK; t++) { if (h[t] !== targetPrefix[t]) { ok = false; break; } }
+        if (!ok) { cnt++; continue; }
+      }
+
+      const addr = h160ToAddr(h);
+      cnt++;
+      if (addr === targetAddrGlobal) {
+        const keyDec = bK[i].toString(10).padStart(22, '0');
+        self.postMessage({ type: 'HIT', workerId: wid, decimal: keyDec, addr, keyHex: bK[i].toString(16) });
+        running = false;
+        return;
+      }
+    }
+
+    const now = Date.now();
+    if (now - lastReport > 200) {
+      self.postMessage({ type: 'progress', workerId: wid, count: cnt, lastKey: (k - 1n).toString(10).padStart(22, '0') });
+      cnt = 0;
+      lastReport = now;
+    }
+  }
+  self.postMessage({ type: 'scanDone', workerId: wid });
+}
+
+self.onmessage = (e) => {
+  const d = e.data;
+  if (d.cmd === 'gen') {
+    const addr = addressFromBig(decimalToBigInt(d.decimal));
+    self.postMessage({ type: 'addr', id: d.id, decimal: d.decimal, addr });
+    return;
+  }
+  if (d.cmd === 'scanStart') {
+    batch = d.batch || 256;
+    setTarget(d.target);
+    const startK = decimalToBigInt(d.start);
+    const endK   = decimalToBigInt(d.end);
+    scanRange(startK, endK, d.workerId, d.workerCount);
+    return;
+  }
+  if (d.cmd === 'stop') { running = false; return; }
+};
+`;
+}
+
+/* ============================================================
+   UI
+   ============================================================ */
+const LENGTH = 22;
+const DIGITS = "0123456789";
+const selected = Array(LENGTH).fill("0");
+const locked = Array(LENGTH).fill(false);
+
+const dial = document.getElementById("dial");
+const keyDisplay = document.getElementById("shortKey");
+const hexKeyDisplay = document.getElementById("hexKey");
+const addressDisplay = document.getElementById("address");
+const statusDisplay = document.getElementById("status");
+const lockStatus = document.getElementById("lockStatus");
+const statsDisplay = document.getElementById("stats");
+const progressFill = document.getElementById("progressFill");
+const progressLeft = document.getElementById("progressLeft");
+const progressRight = document.getElementById("progressRight");
+
+const FIXED_ADDRESS = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU";
+document.getElementById("targetAddress").value = FIXED_ADDRESS;
+
+let currentAddress = "";
+let currentKey = "";
+let currentKeyHex = "";
+let singleWorker = null;
+let singleReq = 0;
+
+const checkedKeys = new Set();
+const checkedCache = new Map();
+
+function requestSingleCheck(force) {
+  const decimal = selected.join("");
+  let hex = "0".repeat(64);
+  try { hex = BigInt(decimal).toString(16).toUpperCase().padStart(64, "0"); } catch {}
+  if (!force && checkedKeys.has(decimal)) {
+    const cached = checkedCache.get(decimal);
+    if (cached !== undefined) { updateDisplay(decimal, cached, hex); return; }
+  }
+  if (!checkedKeys.has(decimal)) checkedKeys.add(decimal);
+  if (singleWorker) singleWorker.postMessage({ cmd: "gen", decimal, id: ++singleReq });
+}
+
+function handleSingle(e) {
+  const d = e.data;
+  if (d.type === "addr") {
+    checkedCache.set(d.decimal, d.addr || "");
+    if (d.decimal !== selected.join("")) return;
+    let hex = "0".repeat(64);
+    try { hex = BigInt(d.decimal).toString(16).toUpperCase().padStart(64, "0"); } catch {}
+    updateDisplay(d.decimal, d.addr || "", hex);
+  }
+}
+
+for (let i = 0; i < LENGTH; i++) {
+  const col = document.createElement("div");
+  col.className = "digit-col";
+  const pos = document.createElement("div");
+  pos.className = "pos-num"; pos.textContent = i + 1; col.appendChild(pos);
+
+  const up = document.createElement("button");
+  up.type = "button"; up.textContent = "▲"; up.title = "Увеличить";
+  up.addEventListener("click", () => {
+    if (locked[i]) return;
+    const cur = parseInt(selected[i], 10);
+    selected[i] = String((cur + 1) % 10);
+    updateColumn(i); onLockChanged();
+  });
+  col.appendChild(up);
+
+  const val = document.createElement("div");
+  val.className = "digit-value"; val.tabIndex = 0;
+  val.textContent = selected[i]; val.dataset.index = i;
+  val.title = "Свайп/колесо — изменить, клик — блокировать";
+
+  val.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    if (locked[i]) return;
+    const cur = parseInt(selected[i], 10);
+    const dir = e.deltaY > 0 ? 1 : -1;
+    selected[i] = String((cur + dir + 10) % 10);
+    updateColumn(i); onLockChanged();
+  }, { passive: false });
+
+  val.addEventListener("click", () => {
+    locked[i] = !locked[i];
+    updateColumn(i); updateLockStatus();
+    if (autoState.running) restartAutoFromCurrent();
+  });
+
+  val.addEventListener("keydown", (e) => {
+    if (locked[i]) return;
+    const cur = parseInt(selected[i], 10);
+    if (e.key === "ArrowUp") { e.preventDefault(); selected[i] = String((cur + 1) % 10); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); selected[i] = String((cur - 1 + 10) % 10); }
+    else return;
+    updateColumn(i); onLockChanged();
+  });
+
+  let touchStartY = 0, touchMoved = false;
+  val.addEventListener("touchstart", (e) => { touchStartY = e.touches[0].clientY; touchMoved = false; }, { passive: true });
+  val.addEventListener("touchmove", (e) => {
+    if (locked[i]) return;
+    const dy = e.touches[0].clientY - touchStartY;
+    if (Math.abs(dy) > 18) {
+      touchMoved = true;
+      const cur = parseInt(selected[i], 10);
+      const dir = dy < 0 ? 1 : -1;
+      selected[i] = String((cur + dir + 10) % 10);
+      updateColumn(i); onLockChanged();
+      touchStartY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+  val.addEventListener("touchend", (e) => { if (touchMoved) { e.preventDefault(); touchMoved = false; } }, { passive: false });
+
+  col.appendChild(val);
+
+  const down = document.createElement("button");
+  down.type = "button"; down.textContent = "▼"; down.title = "Уменьшить";
+  down.addEventListener("click", () => {
+    if (locked[i]) return;
+    const cur = parseInt(selected[i], 10);
+    selected[i] = String((cur - 1 + 10) % 10);
+    updateColumn(i); onLockChanged();
+  });
+  col.appendChild(down);
+
+  dial.appendChild(col);
+}
+
+function updateColumn(i) {
+  const col = dial.children[i];
+  const val = col.querySelector(".digit-value");
+  val.textContent = selected[i];
+  val.classList.toggle("locked", locked[i]);
+  val.classList.toggle("active", true);
+}
+function updateAllColumns() { for (let i = 0; i < LENGTH; i++) updateColumn(i); updateLockStatus(); }
+function updateLockStatus() {
+  const count = locked.filter(Boolean).length;
+  lockStatus.textContent = "Заблокировано: " + count + " / " + LENGTH;
+}
+
+function onLockChanged() {
+  if (autoState.running) restartAutoFromCurrent();
+  else requestSingleCheck(false);
+}
+
+function updateDisplay(decimal, addr, hex) {
+  keyDisplay.textContent = decimal;
+  hexKeyDisplay.textContent = hex;
+  addressDisplay.textContent = addr || "Некорректный ключ";
+  currentAddress = addr || "";
+  currentKey = decimal;
+  currentKeyHex = hex;
+  const target = document.getElementById("targetAddress").value.trim();
+  if (!addr) { statusDisplay.textContent = "Некорректный приватный ключ"; return; }
+  if (!target) { statusDisplay.textContent = "Введите адрес для проверки"; return; }
+  if (addr === target) {
+    statusDisplay.textContent = "✓ Совпадение подтверждено";
+    showSuccess(addr, decimal, hex);
+  } else {
+    statusDisplay.textContent = "Адрес не совпадает с указанным";
+  }
+}
+
+/* ============================================================
+   Автоклик
+   ============================================================ */
+const autoState = {
+  running: false,
+  workers: [],
+  done: new Set(),
+  startedAt: 0,
+  lastTick: 0,
+  lastTotal: 0,
+  total: 0,
+  rangeSize: 0n,
+  rangeStart: "",
+  rangeEnd: "",
+  freeIdx: [],
+  lockedSnapshot: [],
+  lastKey: "",
+  batchSize: 256,
+  workerCount: 4,
+  emaKps: 0,
+};
+
+const autoBtn = document.getElementById("autoBtn");
+let rateTimer = null;
+
+function buildAutoRange() {
+  const startArr = [];
+  const endArr = [];
+  const freeIdx = [];
+  for (let i = 0; i < LENGTH; i++) {
+    if (locked[i]) {
+      startArr[i] = selected[i];
+      endArr[i] = selected[i];
+    } else {
+      startArr[i] = "0";
+      endArr[i] = "9";
+      freeIdx.push(i);
+    }
+  }
+  return { start: startArr.join(""), end: endArr.join(""), freeIdx };
+}
+
+function startAuto() {
+  const target = document.getElementById("targetAddress").value.trim();
+  if (!target) { alert("Введите адрес для проверки"); return; }
+
+  const freeCount = locked.filter(v => !v).length;
+  if (freeCount === 0) {
+    statusDisplay.textContent = "Все цифры заблокированы — перебор невозможен";
+    requestSingleCheck(true);
+    return;
+  }
+
+  const { start, end, freeIdx } = buildAutoRange();
+  const startB = BigInt(start), endB = BigInt(end);
+  if (startB >= endB) {
+    statusDisplay.textContent = "Диапазон перебора пуст";
+    return;
+  }
+
+  const size = endB - startB + 1n;
+
+  autoState.running = true;
+  autoState.startedAt = performance.now();
+  autoState.lastTick = autoState.startedAt;
+  autoState.lastTotal = 0;
+  autoState.total = 0;
+  autoState.rangeSize = size;
+  autoState.done.clear();
+  autoState.workers = [];
+  autoState.lastKey = start;
+  autoState.rangeStart = start;
+  autoState.rangeEnd = end;
+  autoState.freeIdx = freeIdx.slice();
+  autoState.lockedSnapshot = locked.slice();
+  autoState.emaKps = 0;
+
+  autoBtn.textContent = "Автоклик: ВКЛ (стоп)";
+  autoBtn.classList.add("auto-on");
+  statusDisplay.textContent = "Перебор: " + start + " … " + end;
+  resetRateTimer();
+  updateProgress(0);
+
+  const nw = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4));
+  autoState.workerCount = nw;
+
+  for (let i = 0; i < nw; i++) {
+    const w = new Worker(autoState.blobUrl);
+    w.onmessage = (e) => handleAutoMsg(e, i);
+    w.onerror = (err) => console.error("auto worker", err);
+    w.postMessage({
+      cmd: "scanStart",
+      workerId: i,
+      workerCount: nw,
+      target,
+      start,
+      end,
+      batch: autoState.batchSize,
+    });
+    autoState.workers.push(w);
+  }
+}
+
+function stopAuto() {
+  autoState.running = false;
+  autoState.workers.forEach(w => { try { w.postMessage({ cmd: "stop" }); w.terminate(); } catch {} });
+  autoState.workers = [];
+  autoBtn.textContent = "Автоклик: ВЫКЛ";
+  autoBtn.classList.remove("auto-on");
+  if (rateTimer) { clearInterval(rateTimer); rateTimer = null; }
+}
+
+function restartAutoFromCurrent() {
+  stopAuto();
+  setTimeout(startAuto, 50);
+}
+
+function resetRateTimer() {
+  if (rateTimer) clearInterval(rateTimer);
+  rateTimer = setInterval(() => {
+    if (!autoState.running) return;
+    const now = performance.now();
+    const dt = (now - autoState.lastTick) / 1000;
+    if (dt <= 0) return;
+    const instant = (autoState.total - autoState.lastTotal) / dt;
+    // EMA-сглаживание
+    const alpha = 0.35;
+    autoState.emaKps = autoState.emaKps === 0 ? instant : autoState.emaKps * (1 - alpha) + instant * alpha;
+    autoState.lastTick = now;
+    autoState.lastTotal = autoState.total;
+    const kps = (autoState.emaKps / 1000).toFixed(1);
+    statsDisplay.textContent =
+      "Проверено: " + autoState.total.toLocaleString("en-US") +
+      " / " + autoState.rangeSize.toString() +
+      " · " + kps + " k/s" +
+      " · Сейчас: " + autoState.lastKey;
+  }, 300);
+}
+
+function updateProgress(done) {
+  const total = autoState.rangeSize;
+  let pct = 0;
+  if (total > 0n) {
+    const doneB = BigInt(done);
+    if (doneB >= total) pct = 100;
+    else pct = Number((doneB * 1000000n) / total) / 10000;
+  }
+  progressFill.style.width = pct.toFixed(2) + "%";
+  progressLeft.textContent = done.toLocaleString("en-US") + " / " + total.toString();
+  progressRight.textContent = pct.toFixed(2) + "%";
+}
+
+function applyProgressKeyToLock(dec) {
+  for (let i = 0; i < LENGTH; i++) {
+    if (autoState.lockedSnapshot[i]) continue;
+    if (selected[i] !== dec[i]) {
+      selected[i] = dec[i];
+      updateColumn(i);
+    }
+  }
+}
+
+function handleAutoMsg(e, idx) {
+  const d = e.data;
+  if (!autoState.running) return;
+  if (d.type === "progress") {
+    autoState.total += d.count;
+    autoState.lastKey = d.lastKey;
+    applyProgressKeyToLock(d.lastKey);
+    keyDisplay.textContent = selected.join("");
+    try { hexKeyDisplay.textContent = BigInt(selected.join("")).toString(16).toUpperCase().padStart(64, "0"); } catch {}
+    updateProgress(autoState.total);
+  } else if (d.type === "scanDone") {
+    autoState.done.add(idx);
+    if (autoState.done.size >= autoState.workerCount && autoState.running) {
+      // Диапазон полностью пройден — останавливаемся
+      autoState.total = Number(autoState.rangeSize);
+      updateProgress(autoState.total);
+      statsDisplay.textContent =
+        "Проверено: " + autoState.total.toLocaleString("en-US") +
+        " / " + autoState.rangeSize.toString() +
+        " · 100.00% · готово";
+      stopAuto();
+      statusDisplay.textContent = "Перебор завершён. Совпадений нет.";
+    }
+  } else if (d.type === "HIT") {
+    stopAuto();
+    const dec = d.decimal;
+    for (let i = 0; i < LENGTH; i++) {
+      selected[i] = dec[i];
+      updateColumn(i);
+    }
+    let hex = d.keyHex.toUpperCase().padStart(64, "0");
+    updateDisplay(dec, d.addr, hex);
+    statusDisplay.textContent = "✓ Совпадение подтверждено (автоперебор)";
+    showSuccess(d.addr, dec, hex);
+    statsDisplay.textContent = "Найдено на ключе: " + dec;
+    updateProgress(Number(autoState.rangeSize));
+  }
+}
+
+function randomize() {
+  for (let i = 0; i < LENGTH; i++) {
+    if (locked[i]) continue;
+    const r = new Uint8Array(1);
+    let d;
+    do { crypto.getRandomValues(r); d = r[0]; } while (d >= 250);
+    selected[i] = DIGITS[d % 10];
+    updateColumn(i);
+  }
+  updateLockStatus();
+  if (autoState.running) restartAutoFromCurrent();
+  else requestSingleCheck(false);
+}
+
+function resetKey() {
+  selected.fill("0");
+  locked.fill(false);
+  updateAllColumns();
+  updateProgress(0);
+  if (autoState.running) restartAutoFromCurrent();
+  else requestSingleCheck(false);
+}
+
+function showSuccess(address, key, hex) {
+  document.getElementById("modalAddress").textContent = address;
+  document.getElementById("modalKey").textContent = key;
+  document.getElementById("modalHex").textContent = hex;
+  document.getElementById("successModal").classList.add("show");
+}
+function closeModal() { document.getElementById("successModal").classList.remove("show"); }
+
+function downloadResult() {
+  if (!currentAddress || !currentKey) return;
+  const content =
+`BITCOIN ADDRESS
+${currentAddress}
+
+DECIMAL PRIVATE KEY
+${currentKey}
+
+HEX PRIVATE KEY
+${currentKeyHex}
+
+Format: Bitcoin Legacy P2PKH
+Entropy: 22 decimal digits (~71 bits)
+`;
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "bitcoin-result.txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function copyAddress() {
+  if (!currentAddress) return;
+  try {
+    await navigator.clipboard.writeText(currentAddress);
+    document.getElementById("copyBtn").textContent = "Скопировано ✓";
+    setTimeout(() => { document.getElementById("copyBtn").textContent = "Копировать адрес"; }, 1500);
+  } catch { statusDisplay.textContent = "Не удалось скопировать адрес"; }
+}
+
+function initSingleWorker() {
+  const blob = new Blob([workerCode()], { type: "application/javascript" });
+  singleWorker = new Worker(URL.createObjectURL(blob));
+  singleWorker.onmessage = handleSingle;
+  singleWorker.onerror = (err) => console.error("single worker", err);
+}
+function initAutoBlob() {
+  const blob = new Blob([workerCode()], { type: "application/javascript" });
+  autoState.blobUrl = URL.createObjectURL(blob);
+}
+
+document.getElementById("randomBtn").addEventListener("click", randomize);
+document.getElementById("resetBtn").addEventListener("click", resetKey);
+document.getElementById("copyBtn").addEventListener("click", copyAddress);
+document.getElementById("targetAddress").addEventListener("input", () => {
+  if (!autoState.running) requestSingleCheck(true);
+});
+document.getElementById("downloadBtn").addEventListener("click", downloadResult);
+document.getElementById("reloadBtn").addEventListener("click", () => { stopAuto(); location.reload(); });
+document.getElementById("closeBtn").addEventListener("click", closeModal);
+autoBtn.addEventListener("click", () => {
+  if (autoState.running) stopAuto();
+  else startAuto();
+});
+
+initSingleWorker();
+initAutoBlob();
+updateAllColumns();
+updateProgress(0);
+requestSingleCheck(true);
+</script>
+
+</body>
+</html>
