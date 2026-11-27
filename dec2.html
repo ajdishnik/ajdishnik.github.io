@@ -91,9 +91,9 @@ body {
 
 .dial {
     display: grid;
-    grid-template-columns: repeat(11, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     grid-auto-rows: auto;
-    gap: 3px 2px;
+    gap: 4px 6px;
     width: 100%;
     padding: 4px 0 6px;
     overflow: hidden;
@@ -105,7 +105,15 @@ body {
     align-items: center;
     gap: 1px;
     min-width: 0;
+    max-width: 60px;        /* было 84px */
+    justify-self: center;
 }
+
+/* Последний ряд — 4 цифры по центру (колонки 2,3,4,5 из 6) */
+.dial > .digit-col:nth-child(19) { grid-column: 2; }
+.dial > .digit-col:nth-child(20) { grid-column: 3; }
+.dial > .digit-col:nth-child(21) { grid-column: 4; }
+.dial > .digit-col:nth-child(22) { grid-column: 5; }
 
 .digit-col .pos-num {
     font-size: 8px;
@@ -113,6 +121,7 @@ body {
     margin-bottom: 0;
     line-height: 1;
 }
+
 
 .digit-col button {
     display: none; /* скрыто на мобильных */
@@ -134,14 +143,15 @@ body {
 
 .digit-col .digit-value {
     width: 100%;
-    aspect-ratio: 1 / 1.15;
+    height: 56px;           /* фиксированная высота вместо aspect-ratio */
+    aspect-ratio: auto;     /* убрать пропорцию */
     display: grid;
     place-items: center;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 4px;
     font-family: monospace;
-    font-size: clamp(14px, 5.2vw, 24px);
+    font-size: 26px;        /* было clamp(14px, 5.2vw, 44px) */
     font-weight: bold;
     color: var(--orange);
     user-select: none;
