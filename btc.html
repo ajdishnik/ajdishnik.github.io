@@ -1,0 +1,1013 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitcoin HEX Generator</title>
+
+<style>
+:root {
+    --bg: #0b1120;
+    --panel: #151f30;
+    --cell: #202c40;
+    --border: #2b3a50;
+    --orange: #f7931a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 12px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    max-width: 760px;
+    margin: auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.header h2 {
+    color: var(--orange);
+    margin: 8px 0;
+    font-size: 23px;
+}
+
+.header p {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 0;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.section-title {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 9px;
+}
+
+.address-input {
+    width: 100%;
+    padding: 11px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: white;
+    outline: none;
+    font-size: 12px;
+}
+
+.address-input:focus {
+    border-color: var(--orange);
+}
+
+table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 1px 3px;
+}
+
+td {
+    padding: 0;
+    text-align: center;
+}
+
+.number {
+    width: 19px;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.hex {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    background: var(--cell);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: clamp(8px, 1.8vw, 12px);
+    transition: .15s;
+}
+
+.hex:hover {
+    background: #37465d;
+}
+
+.hex.active {
+    background: var(--orange);
+    color: #111827;
+    border-color: var(--orange);
+    font-weight: bold;
+}
+
+.hex.locked {
+    background: #24543e;
+    color: white;
+    border: 1px solid #4ade80;
+    font-weight: bold;
+}
+
+.lock-icon {
+    position: absolute;
+    top: -8px;
+    right: -5px;
+    font-size: 10px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+button.action {
+    flex: 1;
+    padding: 11px 8px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--cell);
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+button.action:hover {
+    background: #37465d;
+}
+
+button.primary {
+    background: var(--orange);
+    color: #111827;
+}
+
+button.primary:hover {
+    background: #ffad42;
+}
+
+.result {
+    display: grid;
+    gap: 12px;
+}
+
+.result-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 5px;
+}
+
+.value {
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 13px;
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.copy {
+    margin-top: 7px;
+    padding: 7px 11px;
+    background: var(--cell);
+    color: white;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.status {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+}
+
+.warning {
+    color: #fbbf24;
+    font-size: 11px;
+    line-height: 1.5;
+    margin: 12px 2px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0,0,0,.82);
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+}
+
+.modal.show {
+    display: flex;
+    animation: fadeIn .2s ease;
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 430px;
+    background: #172235;
+    border: 1px solid var(--orange);
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 15px 60px #0008;
+    animation: slideUp .25s ease;
+}
+
+.modal-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.success-icon {
+    width: 48px;
+    height: 48px;
+    margin: auto auto 12px;
+    border-radius: 50%;
+    background: #173e30;
+    color: #4ade80;
+    display: grid;
+    place-items: center;
+    font-size: 25px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #4ade80;
+    font-size: 19px;
+}
+
+.modal-header p {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.modal-field {
+    margin-bottom: 14px;
+}
+
+.modal-field label {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 7px;
+}
+
+.modal-value {
+    background: #0b1120;
+    padding: 11px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    word-break: break-all;
+}
+
+.modal-actions {
+    display: grid;
+    gap: 9px;
+    margin-top: 20px;
+}
+
+.modal-actions button {
+    width: 100%;
+    padding: 12px;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.download-btn {
+    background: var(--orange);
+    color: #111827;
+}
+
+.reload-btn {
+    background: #29384e;
+    color: white;
+}
+
+.close-btn {
+    background: transparent;
+    color: var(--muted);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media(max-width: 480px) {
+    body { padding: 7px; }
+    .panel { padding: 8px; }
+
+    .number {
+        width: 15px;
+        font-size: 9px;
+    }
+
+    table {
+        border-spacing: 1px 3px;
+    }
+
+    .hex {
+        border-radius: 2px;
+        font-size: 9px;
+    }
+
+    .header h2 {
+        font-size: 20px;
+    }
+
+    .actions {
+        flex-wrap: wrap;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h2>₿ Bitcoin HEX Generator</h2>
+        <p>Выберите по одному HEX-символу в каждой из 18 строк</p>
+    </div>
+
+    <div class="panel">
+        <div class="section-title">
+            Bitcoin-адрес для проверки
+        </div>
+
+        <input
+            id="targetAddress"
+            class="address-input"
+            type="text"
+            placeholder="Введите Bitcoin Legacy Address"
+            autocomplete="off"
+            spellcheck="false"
+        >
+
+    </div>
+
+    <div class="panel">
+
+        <div class="section-title">
+            HEX таблица · 18 × 16
+        </div>
+
+        <table id="hexTable"></table>
+
+        <div class="actions">
+
+            <button class="action primary" id="randomBtn">
+                Случайный ключ
+            </button>
+
+            <button class="action" id="autoBtn">
+                Автоклик: ВЫКЛ
+            </button>
+
+            <button class="action" id="resetBtn">
+                Сбросить
+            </button>
+
+        </div>
+
+        <div class="status" id="lockStatus">
+            Заблокировано: 0 / 18
+        </div>
+
+    </div>
+
+    <div class="panel">
+
+        <div class="result">
+
+            <div>
+                <div class="result-label">
+                    Текущий HEX-ключ (18 символов)
+                </div>
+
+                <div class="value" id="shortKey">
+                    000000000000000000
+                </div>
+            </div>
+
+            <div>
+                <div class="result-label">
+                    Сгенерированный Bitcoin Address
+                </div>
+
+                <div class="value" id="address">
+                    Ожидание...
+                </div>
+
+                <button class="copy" id="copyBtn">
+                    Копировать адрес
+                </button>
+            </div>
+
+        </div>
+
+        <div class="status" id="status">
+            Ожидание проверки
+        </div>
+
+    </div>
+
+    <p class="warning">
+        ⚠ 18 HEX-символов обеспечивают только 72 бита энтропии.
+        Не используйте такие ключи для хранения реальных Bitcoin-средств.
+    </p>
+
+</div>
+
+<div class="modal" id="successModal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <div class="success-icon">✓</div>
+
+            <h3>Адрес подтверждён!</h3>
+
+            <p>
+                Сгенерированный адрес соответствует указанному адресу.
+            </p>
+
+        </div>
+
+        <div class="modal-field">
+            <label>Bitcoin Address</label>
+            <div class="modal-value" id="modalAddress"></div>
+        </div>
+
+        <div class="modal-field">
+            <label>HEX Private Key</label>
+            <div class="modal-value" id="modalKey"></div>
+        </div>
+
+        <div class="modal-actions">
+
+            <button class="download-btn" id="downloadBtn">
+                ↓ Скачать результат TXT
+            </button>
+
+            <button class="reload-btn" id="reloadBtn">
+                ↻ Обновить страницу
+            </button>
+
+            <button class="close-btn" id="closeBtn">
+                Закрыть
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import { secp256k1 } from
+"https://esm.sh/@noble/curves@1.8.1/secp256k1.js";
+
+import { sha256 } from
+"https://esm.sh/@noble/hashes@1.7.1/sha2.js";
+
+import { ripemd160 } from
+"https://esm.sh/@noble/hashes@1.7.1/ripemd160.js";
+
+import bs58 from
+"https://esm.sh/bs58@6.0.0";
+
+
+const HEX = "0123456789ABCDEF";
+
+const selected = Array(18).fill("0");
+
+const locked = Array(18).fill(false);
+
+const table = document.getElementById("hexTable");
+
+const keyDisplay = document.getElementById("shortKey");
+
+const addressDisplay = document.getElementById("address");
+
+const statusDisplay = document.getElementById("status");
+
+
+const FIXED_ADDRESS = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU";
+document.getElementById("targetAddress").value = FIXED_ADDRESS;
+
+
+const lockStatus = document.getElementById("lockStatus");
+
+let currentAddress = "";
+let currentKey = "";
+
+let autoClick = null;
+
+
+// СОЗДАНИЕ ТАБЛИЦЫ
+
+for (let row = 0; row < 18; row++) {
+
+    const tr = document.createElement("tr");
+
+    const number = document.createElement("td");
+
+    number.className = "number";
+    number.textContent = row + 1;
+
+    tr.appendChild(number);
+
+    for (const char of HEX) {
+
+        const td = document.createElement("td");
+
+        const btn = document.createElement("button");
+
+        btn.type = "button";
+        btn.className = "hex";
+        btn.textContent = char;
+
+        btn.addEventListener("click", () => {
+
+            if (selected[row] === char) {
+
+                locked[row] = !locked[row];
+
+            } else {
+
+                selected[row] = char;
+                locked[row] = false;
+
+            }
+
+            updateRow(row);
+            update();
+
+        });
+
+        td.appendChild(btn);
+        tr.appendChild(td);
+
+    }
+
+    table.appendChild(tr);
+
+}
+
+
+// ОБНОВЛЕНИЕ СТРОКИ
+
+function updateRow(row) {
+
+    const tr = table.rows[row];
+
+    tr.querySelectorAll(".hex").forEach(btn => {
+
+        const char = btn.textContent;
+
+        const active = char === selected[row];
+
+        btn.classList.toggle("active", active);
+
+        btn.classList.toggle(
+            "locked",
+            active && locked[row]
+        );
+
+        const oldLock = btn.querySelector(".lock-icon");
+
+        if (oldLock) {
+            oldLock.remove();
+        }
+
+        if (active && locked[row]) {
+
+            const icon = document.createElement("span");
+
+            icon.className = "lock-icon";
+            icon.textContent = "🔒";
+
+            btn.appendChild(icon);
+
+        }
+
+        btn.title = active && locked[row]
+            ? "Заблокировано. Нажмите для разблокировки"
+            : "Выбрать символ";
+
+    });
+
+    const count = locked.filter(Boolean).length;
+
+    lockStatus.textContent =
+        "Заблокировано: " + count + " / 18";
+
+}
+
+
+// ОБНОВЛЕНИЕ ВСЕХ СТРОК
+
+function updateAllRows() {
+
+    for (let i = 0; i < 18; i++) {
+        updateRow(i);
+    }
+
+}
+
+
+// BASE58CHECK
+
+function base58Check(payload) {
+
+    const first = sha256(payload);
+
+    const second = sha256(first);
+
+    const checksum = second.slice(0, 4);
+
+    const result = new Uint8Array(
+        payload.length + 4
+    );
+
+    result.set(payload);
+
+    result.set(checksum, payload.length);
+
+    return bs58.encode(result);
+
+}
+
+
+// ГЕНЕРАЦИЯ BITCOIN P2PKH
+
+function generateAddress(hex) {
+
+    if (!/^[0-9A-F]{18}$/.test(hex)) {
+        throw new Error("Invalid HEX");
+    }
+
+    const fullHex = hex.padStart(64, "0");
+
+    const privateBytes = Uint8Array.from(
+        fullHex.match(/.{2}/g),
+        byte => parseInt(byte, 16)
+    );
+
+    const publicKey = secp256k1.getPublicKey(
+        privateBytes,
+        true
+    );
+
+    const publicHash = ripemd160(
+        sha256(publicKey)
+    );
+
+    const payload = new Uint8Array(21);
+
+    payload[0] = 0x00;
+
+    payload.set(publicHash, 1);
+
+    return base58Check(payload);
+
+}
+
+
+
+// ОБНОВЛЕНИЕ РЕЗУЛЬТАТА
+
+function update() {
+
+    const hex = selected.join("");
+
+    keyDisplay.textContent = hex;
+
+    try {
+
+        const address = generateAddress(hex);
+
+        currentAddress = address;
+        currentKey = hex;
+
+        addressDisplay.textContent = address;
+
+        const target = document
+            .getElementById("targetAddress")
+            .value.trim();
+
+        if (!target) {
+
+            statusDisplay.textContent =
+                "Введите адрес для проверки";
+
+            return;
+
+        }
+
+        if (address === target) {
+
+            statusDisplay.textContent =
+                "✓ Совпадение подтверждено";
+
+            showSuccess(address, hex);
+
+        } else {
+
+            statusDisplay.textContent =
+                "Адрес не совпадает с указанным";
+
+        }
+
+    } catch (error) {
+
+        currentAddress = "";
+        currentKey = "";
+
+        addressDisplay.textContent =
+            "Некорректный приватный ключ";
+
+        statusDisplay.textContent =
+            "Ошибка генерации";
+
+    }
+
+}
+
+
+// ПРОВЕРКА ВВЕДЁННОГО АДРЕСА
+
+document
+    .getElementById("targetAddress")
+    .addEventListener("input", update);
+
+
+// СЛУЧАЙНАЯ ГЕНЕРАЦИЯ
+
+function randomize() {
+
+    const random = new Uint8Array(18);
+
+    crypto.getRandomValues(random);
+
+    for (let i = 0; i < 18; i++) {
+
+        // Заблокированные строки пропускаем
+        if (locked[i]) continue;
+
+        selected[i] = HEX[random[i] & 15];
+
+        updateRow(i);
+
+    }
+
+    update();
+
+}
+
+
+// СБРОС ВСЕХ СИМВОЛОВ И БЛОКИРОВОК
+
+function resetKey() {
+
+    selected.fill("0");
+
+    locked.fill(false);
+
+    updateAllRows();
+
+    update();
+
+}
+
+
+// АВТОКЛИК
+
+const randomBtn = document.getElementById("randomBtn");
+
+const autoBtn = document.getElementById("autoBtn");
+
+function startAutoClick() {
+
+    if (autoClick !== null) return;
+
+    autoClick = setInterval(() => {
+
+        randomize();
+
+    }, 1);
+
+    autoBtn.textContent = "Автоклик: ВКЛ";
+
+}
+
+
+function stopAutoClick() {
+
+    if (autoClick !== null) {
+
+        clearInterval(autoClick);
+
+        autoClick = null;
+
+    }
+
+    autoBtn.textContent = "Автоклик: ВЫКЛ";
+
+}
+
+
+autoBtn.addEventListener("click", () => {
+
+    if (autoClick !== null) {
+
+        stopAutoClick();
+
+    } else {
+
+        startAutoClick();
+
+    }
+
+});
+
+
+// МОДАЛЬНОЕ ОКНО
+
+function showSuccess(address, key) {
+
+    document.getElementById("modalAddress")
+        .textContent = address;
+
+    document.getElementById("modalKey")
+        .textContent = key;
+
+    document.getElementById("successModal")
+        .classList.add("show");
+
+}
+
+
+function closeModal() {
+
+    document.getElementById("successModal")
+        .classList.remove("show");
+
+}
+
+
+// СКАЧИВАНИЕ РЕЗУЛЬТАТА
+
+function downloadResult() {
+
+    if (!currentAddress || !currentKey) return;
+
+    const content =
+`BITCOIN ADDRESS
+${currentAddress}
+
+HEX PRIVATE KEY
+${currentKey}
+
+Format: Bitcoin Legacy P2PKH
+`;
+
+    const blob = new Blob(
+        [content],
+        { type: "text/plain;charset=utf-8" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = "bitcoin-result.txt";
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+
+    setTimeout(() => {
+
+        URL.revokeObjectURL(url);
+
+    }, 1000);
+
+}
+
+
+// КОПИРОВАНИЕ АДРЕСА
+
+async function copyAddress() {
+
+    if (!currentAddress) return;
+
+    try {
+
+        await navigator.clipboard.writeText(
+            currentAddress
+        );
+
+        document.getElementById("copyBtn")
+            .textContent = "Скопировано ✓";
+
+    } catch {
+
+        statusDisplay.textContent =
+            "Не удалось скопировать адрес";
+
+    }
+
+}
+
+
+// ОБРАБОТЧИКИ КНОПОК
+
+randomBtn.addEventListener("click", randomize);
+
+
+document.getElementById("resetBtn")
+    .addEventListener("click", resetKey);
+
+
+document.getElementById("copyBtn")
+    .addEventListener("click", copyAddress);
+
+
+document.getElementById("downloadBtn")
+    .addEventListener("click", downloadResult);
+
+
+document.getElementById("reloadBtn")
+    .addEventListener("click", () => {
+
+        stopAutoClick();
+
+        location.reload();
+
+    });
+
+
+document.getElementById("closeBtn")
+    .addEventListener("click", closeModal);
+
+
+// ПЕРВОНАЧАЛЬНАЯ ИНИЦИАЛИЗАЦИЯ
+
+updateAllRows();
+
+update();
+
+</script>
+
+</body>
+</html>
