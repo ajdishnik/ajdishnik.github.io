@@ -213,7 +213,6 @@ button.action:disabled { opacity: .45; cursor: not-allowed; }
         <p>Комбинаторный перебор по свободным разрядам · предвычисление T_i = 10^p·G · Vanity-поиск</p>
     </div>
 
-    <!-- ================= ЦЕЛЕВОЙ АДРЕС (для точного совпадения) ================= -->
     <div class="panel">
         <div class="section-title">Bitcoin-адрес для проверки (точное совпадение)</div>
         <input id="targetAddress" class="address-input" type="text"
@@ -221,7 +220,6 @@ button.action:disabled { opacity: .45; cursor: not-allowed; }
                autocomplete="off" spellcheck="false">
     </div>
 
-    <!-- ================= VANITY-ПОИСК (НОВОЕ) ================= -->
     <div class="panel">
         <div class="section-title">Vanity-поиск по паттерну адреса (подстрока Base58)</div>
         <input id="vanityPattern" class="address-input" type="text"
@@ -248,7 +246,6 @@ button.action:disabled { opacity: .45; cursor: not-allowed; }
         </div>
     </div>
 
-    <!-- ================= КОДОВЫЙ ЗАМОК ================= -->
     <div class="panel">
         <div class="section-title">Кодовый замок · 22 цифры (0–9) · 2 ряда по 11</div>
         <div class="lock-wrap">
@@ -262,7 +259,6 @@ button.action:disabled { opacity: .45; cursor: not-allowed; }
         <div class="status" id="lockStatus">Заблокировано: 0 / 22</div>
     </div>
 
-    <!-- ================= РЕЗУЛЬТАТ ================= -->
     <div class="panel">
         <div class="result">
             <div>
@@ -299,7 +295,6 @@ button.action:disabled { opacity: .45; cursor: not-allowed; }
 
 </div>
 
-<!-- ================= МОДАЛКА ================= -->
 <div class="modal" id="successModal">
     <div class="modal-content">
         <div class="modal-header">
@@ -632,7 +627,7 @@ function digitsFromIdx(idx, freeIdx) {
   return digs;
 }
 
-/* Собирает ключ-строку из baseLocked + цифр свободных разрядов */
+/* Собирает ключ-строку: заблокированные цифры + цифры свободных разрядов из idx */
 function keyFromIdx(idx, baseLocked, freeIdx) {
   const out = baseLocked.slice();
   let v = idx;
@@ -646,8 +641,8 @@ function keyFromIdx(idx, baseLocked, freeIdx) {
 
 /* ============================================================
    Предвычисление: baseG и T_i = 10^(p_i) * G
-   p_i — позиция свободного разряда в 22-значном DECIMAL (справа налево, 0..21)
-   Позиция i в строке соответствует 10^(LENGTH-1-i).
+   ВАЖНО: baseLocked содержит ТОЛЬКО зафиксированные цифры,
+   свободные разряды здесь уже обнулены (это гарантирует UI).
    ============================================================ */
 function buildTables(baseLocked, freeIdx) {
   const baseStr = baseLocked.join('');
@@ -737,7 +732,6 @@ function scanRange(idxStart, idxEnd, wid, wcount, baseLocked, freeIdx, basePt, T
           return;
         }
       } else {
-        // Vanity-режим
         if (!pattern) continue;
         let matched = false;
         if (matchMode === 'startsWith') matched = addr.startsWith(pattern);
@@ -896,6 +890,8 @@ for (let i = 0; i < LENGTH; i++) {
     locked[i] = !locked[i];
     updateColumn(i); updateLockStatus();
     if (autoState.running) restartAutoFromCurrent();
+    else if (vanityState.running) restartVanityFromCurrent();
+    else requestSingleCheck(false);
   });
 
   val.addEventListener("keydown", (e) => {
@@ -964,9 +960,6 @@ function updateDisplay(decimal, addr, hex) {
   currentAddress = addr || "";
   currentKey = decimal;
   currentKeyHex = hex;
-  currentIsVanity = false;
-  currentPattern = "";
-  currentMatchMode = "";
   const target = document.getElementById("targetAddress").value.trim();
   if (!addr) { statusDisplay.textContent = "Некорректный приватный ключ"; return; }
   if (!target) { statusDisplay.textContent = "Введите адрес для проверки"; return; }
@@ -1005,7 +998,7 @@ function buildCombo() {
   const baseLocked = selected.slice();
   const freeIdx = [];
   for (let i = 0; i < LENGTH; i++) {
-    if (!locked[i]) freeIdx.push(i);
+    if (!locked[i]) { freeIdx.push(i); baseLocked[i] = '0'; }
     else baseLocked[i] = selected[i];
   }
   const totalComb = 10n ** BigInt(freeIdx.length);
@@ -1138,6 +1131,8 @@ function applyComboToLock(idxBig) {
       updateColumn(i);
     }
   }
+  keyDisplay.textContent = selected.join("");
+  try { hexKeyDisplay.textContent = BigInt(selected.join("")).toString(16).toUpperCase().padStart(64, "0"); } catch {}
 }
 
 function handleAutoMsg(e, idx) {
@@ -1146,8 +1141,6 @@ function handleAutoMsg(e, idx) {
   if (d.type === "progress") {
     autoState.total += d.count;
     applyComboToLock(BigInt(d.lastIdx));
-    keyDisplay.textContent = selected.join("");
-    try { hexKeyDisplay.textContent = BigInt(selected.join("")).toString(16).toUpperCase().padStart(64, "0"); } catch {}
     updateProgress(autoState.total);
   } else if (d.type === "scanDone") {
     autoState.done.add(idx);
@@ -1169,7 +1162,10 @@ function handleAutoMsg(e, idx) {
       selected[i] = dec[i];
       updateColumn(i);
     }
-    let hex = d.keyHex.toUpperCase().padStart(64, "0");
+    const hex = d.keyHex.toUpperCase().padStart(64, "0");
+    currentIsVanity = false;
+    currentPattern = "";
+    currentMatchMode = "";
     updateDisplay(dec, d.addr, hex);
     statusDisplay.textContent = "✓ Совпадение подтверждено (автоперебор)";
     showSuccess(d.addr, dec, hex);
@@ -1179,7 +1175,7 @@ function handleAutoMsg(e, idx) {
 }
 
 /* ============================================================
-   Vanity-поиск (НОВОЕ)
+   Vanity-поиск
    ============================================================ */
 const vanityState = {
   running: false,
@@ -1195,7 +1191,6 @@ const vanityState = {
   lastKey: "",
   workerCount: 4,
   emaKps: 0,
-  attempts: 0,
   pattern: "",
   matchMode: "includes",
 };
@@ -1251,7 +1246,6 @@ function startVanity() {
   vanityState.lastTick = performance.now();
   vanityState.lastTotal = 0;
   vanityState.total = 0;
-  vanityState.attempts = 0;
   vanityState.totalComb = totalComb;
   vanityState.done.clear();
   vanityState.workers = [];
@@ -1365,6 +1359,8 @@ function handleVanityMsg(e, idx) {
       updateColumn(i);
     }
     const hex = d.keyHex.toUpperCase().padStart(64, "0");
+
+    // Явно синхронизируем ВСЕ поля с фактическим ключом и адресом
     currentAddress = d.addr;
     currentKey = dec;
     currentKeyHex = hex;
@@ -1374,6 +1370,7 @@ function handleVanityMsg(e, idx) {
     keyDisplay.textContent = dec;
     hexKeyDisplay.textContent = hex;
     addressDisplay.textContent = d.addr;
+
     statusDisplay.className = "status ok";
     statusDisplay.textContent = `✓ Vanity-паттерн "${d.pattern}" найден`;
     vanityStatus.className = "status ok";
@@ -1454,14 +1451,11 @@ function initAutoBlob() {
   autoState.blobUrl = URL.createObjectURL(blob);
 }
 
-/* ============================================================
-   Обработчики
-   ============================================================ */
 document.getElementById("randomBtn").addEventListener("click", randomize);
 document.getElementById("resetBtn").addEventListener("click", resetKey);
 document.getElementById("copyBtn").addEventListener("click", copyAddress);
 document.getElementById("targetAddress").addEventListener("input", () => {
-  if (!autoState.running) requestSingleCheck(true);
+  if (!autoState.running && !vanityState.running) requestSingleCheck(true);
 });
 document.getElementById("downloadBtn").addEventListener("click", downloadResult);
 document.getElementById("reloadBtn").addEventListener("click", () => { stopAuto(); stopVanity(); location.reload(); });
@@ -1501,7 +1495,7 @@ function resetKey() {
   vanityUpdateProgress();
   vanityStatus.className = "status";
   vanityStatus.textContent = "Введите паттерн и нажмите «Vanity-поиск»";
-  requestSingleCheck(false);
+  requestSingleCheck(true);
 }
 
 initSingleWorker();
