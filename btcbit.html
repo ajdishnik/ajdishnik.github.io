@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bitcoin Bit Generator 7×7</title>
+
+<style>
+:root {
+    --bg: #0b1120;
+    --panel: #151f30;
+    --cell: #202c40;
+    --border: #2b3a50;
+    --orange: #f7931a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+}
+
+* {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 12px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    max-width: 520px;
+    margin: auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.header h2 {
+    color: var(--orange);
+    margin: 6px 0;
+    font-size: 20px;
+}
+
+.header p {
+    color: var(--muted);
+    font-size: 11px;
+    margin: 0;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.section-title {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+
+.address-input {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: white;
+    outline: none;
+    font-size: 12px;
+}
+
+.address-input:focus {
+    border-color: var(--orange);
+}
+
+/* --- СЕТКА 7×7 --- */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);  /* = COLS */
+    gap: 4px;
+    max-width: 440px;   /* чуть шире, т.к. 10 колонок */
+    margin: 0 auto;
+}
+
+.bit {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    background: var(--cell);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: .12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    user-select: none;
+}
+
+.bit:hover {
+    background: #37465d;
+}
+
+.bit.active {
+    background: var(--orange);
+    color: #111827;
+    border-color: var(--orange);
+}
+
+.bit.locked {
+    background: #24543e;
+    color: white;
+    border-color: #4ade80;
+}
+
+.lock-icon {
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    font-size: 9px;
+    pointer-events: none;
+}
+
+/* --- КНОПКИ --- */
+.actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+button.action {
+    flex: 1;
+    padding: 10px 6px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--cell);
+    color: white;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+button.action:hover {
+    background: #37465d;
+}
+
+button.primary {
+    background: var(--orange);
+    color: #111827;
+}
+
+button.primary:hover {
+    background: #ffad42;
+}
+
+/* --- РЕЗУЛЬТАТ --- */
+.result {
+    display: grid;
+    gap: 10px;
+}
+
+.result-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.value {
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.copy {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--cell);
+    color: white;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.status {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.warning {
+    color: #fbbf24;
+    font-size: 10px;
+    line-height: 1.5;
+    margin: 10px 2px;
+}
+
+/* --- МОДАЛКА --- */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0,0,0,.82);
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+}
+
+.modal.show {
+    display: flex;
+    animation: fadeIn .2s ease;
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 400px;
+    background: #172235;
+    border: 1px solid var(--orange);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 15px 60px #0008;
+    animation: slideUp .25s ease;
+}
+
+.modal-header {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.success-icon {
+    width: 44px;
+    height: 44px;
+    margin: auto auto 10px;
+    border-radius: 50%;
+    background: #173e30;
+    color: #4ade80;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #4ade80;
+    font-size: 17px;
+}
+
+.modal-header p {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.modal-field {
+    margin-bottom: 12px;
+}
+
+.modal-field label {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-bottom: 6px;
+}
+
+.modal-value {
+    background: #0b1120;
+    padding: 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+.modal-actions {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.modal-actions button {
+    width: 100%;
+    padding: 11px;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.download-btn { background: var(--orange); color: #111827; }
+.reload-btn { background: #29384e; color: white; }
+.close-btn { background: transparent; color: var(--muted); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media(max-width: 420px) {
+    body { padding: 8px; }
+    .grid { gap: 3px; }
+    .bit { font-size: 12px; border-radius: 3px; }
+    .header h2 { font-size: 18px; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h2>₿ Bitcoin Bit Generator</h2>
+        <p>Сетка 7 × 7 = 49 бит</p>
+    </div>
+
+    <div class="panel">
+        <div class="section-title">Bitcoin-адрес для проверки</div>
+        <input
+            id="targetAddress"
+            class="address-input"
+            type="text"
+            placeholder="Введите Bitcoin Legacy Address"
+            autocomplete="off"
+            spellcheck="false"
+        >
+    </div>
+
+    <div class="panel">
+        <div class="section-title">Битовая сетка · 7 × 7</div>
+
+        <div class="grid" id="bitGrid"></div>
+
+        <div class="actions">
+            <button class="action primary" id="randomBtn">Случайный</button>
+            <button class="action" id="autoBtn">Авто: ВЫКЛ</button>
+            <button class="action" id="resetBtn">Сброс</button>
+        </div>
+
+        <div class="status" id="lockStatus">Заблокировано: 0 / 49</div>
+    </div>
+
+    <div class="panel">
+        <div class="result">
+            <div>
+                <div class="result-label">Битовый ключ (49 бит)</div>
+                <div class="value" id="shortKey">0000000000000000000000000000000000000000000000000</div>
+            </div>
+            <div>
+                <div class="result-label">Bitcoin Address</div>
+                <div class="value" id="address">Ожидание...</div>
+                <button class="copy" id="copyBtn">Копировать адрес</button>
+            </div>
+        </div>
+        <div class="status" id="status">Ожидание проверки</div>
+    </div>
+
+    <p class="warning">
+        ⚠ 49 бит — низкая энтропия. Не используйте для реальных средств.
+    </p>
+
+</div>
+
+<div class="modal" id="successModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="success-icon">✓</div>
+            <h3>Адрес подтверждён!</h3>
+            <p>Сгенерированный адрес совпадает с указанным.</p>
+        </div>
+        <div class="modal-field">
+            <label>Bitcoin Address</label>
+            <div class="modal-value" id="modalAddress"></div>
+        </div>
+        <div class="modal-field">
+            <label>HEX Private Key</label>
+            <div class="modal-value" id="modalKey"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="download-btn" id="downloadBtn">↓ Скачать TXT</button>
+            <button class="reload-btn" id="reloadBtn">↻ Обновить</button>
+            <button class="close-btn" id="closeBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+
+import { secp256k1 } from "https://esm.sh/@noble/curves@1.8.1/secp256k1.js";
+import { sha256 } from "https://esm.sh/@noble/hashes@1.7.1/sha2.js";
+import { ripemd160 } from "https://esm.sh/@noble/hashes@1.7.1/ripemd160.js";
+import bs58 from "https://esm.sh/bs58@6.0.0";
+
+// 7×7 = 49 бит
+const ROWS = 7;
+const COLS = 10;
+const GRID_SIZE = ROWS * COLS;  // 70
+const TOTAL = GRID_SIZE + 1;    // 71
+
+
+const selected = Array(TOTAL).fill("0");
+const locked = Array(TOTAL).fill(false);
+
+const grid = document.getElementById("bitGrid");
+const keyDisplay = document.getElementById("shortKey");
+const addressDisplay = document.getElementById("address");
+const statusDisplay = document.getElementById("status");
+const lockStatus = document.getElementById("lockStatus");
+
+const FIXED_ADDRESS = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU";
+document.getElementById("targetAddress").value = FIXED_ADDRESS;
+
+let currentAddress = "";
+let currentKey = "";
+let autoClick = null;
+
+// --- СОЗДАНИЕ СЕТКИ 7×7 ---
+for (let i = 0; i < TOTAL; i++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bit";
+    btn.textContent = "0";
+
+    btn.addEventListener("click", () => {
+        const newBit = selected[i] === "0" ? "1" : "0";
+        // если кликнули по тому же биту — переключаем блокировку
+        // (как в оригинале: повторный клик по активному = lock)
+        if (selected[i] === newBit) {
+            // не должно случаться, но на всякий
+        }
+        // Логика как в оригинале: клик по текущему значению = toggle lock
+        // Но у нас только 2 состояния — сделаем так:
+        // клик по кнопке переключает бит, а долгий клик/повторный — блокировку.
+        // Проще: клик = переключение бита, повторный клик по тому же = lock.
+        // Реализуем через сравнение с предыдущим кликом.
+        handleClick(i);
+    });
+
+    grid.appendChild(btn);
+}
+
+// Храним последний клик для логики блокировки
+const lastClicked = Array(TOTAL).fill(null);
+
+function handleClick(i) {
+    const current = selected[i];
+
+    // Если повторный клик по той же позиции (значение не менялось) — toggle lock
+    if (lastClicked[i] === current) {
+        locked[i] = !locked[i];
+    } else {
+        // Иначе переключаем бит и снимаем блокировку
+        selected[i] = current === "0" ? "1" : "0";
+        locked[i] = false;
+    }
+
+    lastClicked[i] = selected[i];
+    updateCell(i);
+    update();
+}
+
+function updateCell(i) {
+    const btn = grid.children[i];
+    btn.textContent = selected[i];
+    btn.classList.toggle("active", selected[i] === "1");
+    btn.classList.toggle("locked", locked[i]);
+
+    // иконка замка
+    const old = btn.querySelector(".lock-icon");
+    if (old) old.remove();
+    if (locked[i]) {
+        const icon = document.createElement("span");
+        icon.className = "lock-icon";
+        icon.textContent = "🔒";
+        btn.appendChild(icon);
+    }
+
+    const count = locked.filter(Boolean).length;
+    lockStatus.textContent = "Заблокировано: " + count + " / " + TOTAL;
+}
+
+function updateAll() {
+    for (let i = 0; i < TOTAL; i++) updateCell(i);
+}
+
+// --- BASE58CHECK ---
+function base58Check(payload) {
+    const first = sha256(payload);
+    const second = sha256(first);
+    const checksum = second.slice(0, 4);
+    const result = new Uint8Array(payload.length + 4);
+    result.set(payload);
+    result.set(checksum, payload.length);
+    return bs58.encode(result);
+}
+
+// --- БИТЫ → HEX-КЛЮЧ (64 символа) ---
+function bitsToPrivateKeyHex(bitString) {
+    let value = 0n;
+    for (const b of bitString) {
+        value = (value << 1n) | BigInt(b);
+    }
+    if (value === 0n) value = 1n;
+    return value.toString(16).padStart(64, "0").toUpperCase();
+}
+
+// --- ГЕНЕРАЦИЯ АДРЕСА ---
+function generateAddress(bitString) {
+    const fullHex = bitsToPrivateKeyHex(bitString);
+    const privateBytes = Uint8Array.from(
+        fullHex.match(/.{2}/g),
+        byte => parseInt(byte, 16)
+    );
+    const publicKey = secp256k1.getPublicKey(privateBytes, true);
+    const publicHash = ripemd160(sha256(publicKey));
+    const payload = new Uint8Array(21);
+    payload[0] = 0x00;
+    payload.set(publicHash, 1);
+    return base58Check(payload);
+}
+
+function update() {
+    const bits = selected.join("");
+    keyDisplay.textContent = bits;
+
+    try {
+        const address = generateAddress(bits);
+        currentAddress = address;
+        currentKey = bitsToPrivateKeyHex(bits);
+        addressDisplay.textContent = address;
+
+        const target = document.getElementById("targetAddress").value.trim();
+        if (!target) {
+            statusDisplay.textContent = "Введите адрес для проверки";
+            return;
+        }
+        if (address === target) {
+            statusDisplay.textContent = "✓ Совпадение подтверждено";
+            showSuccess(address, currentKey);
+        } else {
+            statusDisplay.textContent = "Адрес не совпадает с указанным";
+        }
+    } catch (error) {
+        currentAddress = "";
+        currentKey = "";
+        addressDisplay.textContent = "Некорректный приватный ключ";
+        statusDisplay.textContent = "Ошибка генерации";
+    }
+}
+
+document.getElementById("targetAddress").addEventListener("input", update);
+
+// --- СЛУЧАЙНАЯ ГЕНЕРАЦИЯ ---
+function randomize() {
+    const random = new Uint8Array(TOTAL);
+    crypto.getRandomValues(random);
+    for (let i = 0; i < TOTAL; i++) {
+        if (locked[i]) continue;
+        selected[i] = (random[i] & 1) ? "1" : "0";
+        lastClicked[i] = null; // сбрасываем историю кликов
+        updateCell(i);
+    }
+    update();
+}
+
+function resetKey() {
+    selected.fill("0");
+    locked.fill(false);
+    lastClicked.fill(null);
+    updateAll();
+    update();
+}
+
+// --- АВТОКЛИК ---
+const randomBtn = document.getElementById("randomBtn");
+const autoBtn = document.getElementById("autoBtn");
+
+function startAutoClick() {
+    if (autoClick !== null) return;
+    autoClick = setInterval(randomize, 10);
+    autoBtn.textContent = "Авто: ВКЛ";
+}
+
+function stopAutoClick() {
+    if (autoClick !== null) {
+        clearInterval(autoClick);
+        autoClick = null;
+    }
+    autoBtn.textContent = "Авто: ВЫКЛ";
+}
+
+autoBtn.addEventListener("click", () => {
+    if (autoClick !== null) stopAutoClick();
+    else startAutoClick();
+});
+
+// --- МОДАЛКА ---
+function showSuccess(address, key) {
+    document.getElementById("modalAddress").textContent = address;
+    document.getElementById("modalKey").textContent = key;
+    document.getElementById("successModal").classList.add("show");
+}
+
+function closeModal() {
+    document.getElementById("successModal").classList.remove("show");
+}
+
+// --- СКАЧИВАНИЕ ---
+function downloadResult() {
+    if (!currentAddress || !currentKey) return;
+    const content =
+`BITCOIN ADDRESS
+${currentAddress}
+
+HEX PRIVATE KEY
+${currentKey}
+
+BIT STRING (${TOTAL} bits)
+${selected.join("")}
+
+Format: Bitcoin Legacy P2PKH
+`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bitcoin-result.txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// --- КОПИРОВАНИЕ ---
+async function copyAddress() {
+    if (!currentAddress) return;
+    try {
+        await navigator.clipboard.writeText(currentAddress);
+        document.getElementById("copyBtn").textContent = "Скопировано ✓";
+    } catch {
+        statusDisplay.textContent = "Не удалось скопировать адрес";
+    }
+}
+
+// --- ОБРАБОТЧИКИ ---
+randomBtn.addEventListener("click", randomize);
+document.getElementById("resetBtn").addEventListener("click", resetKey);
+document.getElementById("copyBtn").addEventListener("click", copyAddress);
+document.getElementById("downloadBtn").addEventListener("click", downloadResult);
+document.getElementById("reloadBtn").addEventListener("click", () => {
+    stopAutoClick();
+    location.reload();
+});
+document.getElementById("closeBtn").addEventListener("click", closeModal);
+
+// --- ИНИЦИАЛИЗАЦИЯ ---
+updateAll();
+update();
+
+</script>
+
+</body>
+</html>
