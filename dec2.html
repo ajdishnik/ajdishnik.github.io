@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bitcoin DECIMAL Generator</title>
+
+<style>
+:root {
+    --bg: #0b1120;
+    --panel: #151f30;
+    --cell: #202c40;
+    --border: #2b3a50;
+    --orange: #f7931a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+}
+
+* {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    max-width: 760px;
+    margin: auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.header h2 {
+    color: var(--orange);
+    margin: 4px 0;
+    font-size: 18px;
+}
+
+.header p {
+    color: var(--muted);
+    font-size: 11px;
+    margin: 0;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+
+.section-title {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.address-input {
+    width: 100%;
+    padding: 9px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: white;
+    outline: none;
+    font-size: 11px;
+}
+
+.address-input:focus {
+    border-color: var(--orange);
+}
+
+/* ===== КОДОВЫЙ ЗАМОК: 2 ряда по 11 ===== */
+.lock-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.dial {
+    display: grid;
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    gap: 3px 2px;
+    width: 100%;
+    padding: 4px 0 6px;
+    overflow: hidden;
+}
+
+.digit-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 0;
+}
+
+.digit-col .pos-num {
+    font-size: 8px;
+    color: var(--muted);
+    margin-bottom: 0;
+    line-height: 1;
+}
+
+.digit-col button {
+    display: none; /* скрыто на мобильных */
+    width: 100%;
+    height: 18px;
+    border: 1px solid var(--border);
+    background: var(--cell);
+    color: var(--text);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 9px;
+    padding: 0;
+    line-height: 1;
+}
+
+.digit-col button:hover {
+    background: #37465d;
+}
+
+.digit-col .digit-value {
+    width: 100%;
+    aspect-ratio: 1 / 1.15;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: clamp(14px, 5.2vw, 24px);
+    font-weight: bold;
+    color: var(--orange);
+    user-select: none;
+    cursor: pointer;
+    position: relative;
+    touch-action: none;
+}
+
+.digit-col .digit-value.locked {
+    background: #24543e;
+    border-color: #4ade80;
+    color: white;
+    cursor: default;
+}
+
+.digit-col .digit-value.locked::after {
+    content: "🔒";
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    font-size: 8px;
+}
+
+.digit-col .digit-value.active {
+    border-color: var(--orange);
+}
+
+.digit-col .digit-value:focus {
+    outline: 2px solid var(--orange);
+    outline-offset: 1px;
+}
+
+/* ===== ОСТАЛЬНОЕ ===== */
+.actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+button.action {
+    flex: 1;
+    padding: 9px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--cell);
+    color: white;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+button.action:hover {
+    background: #37465d;
+}
+
+button.primary {
+    background: var(--orange);
+    color: #111827;
+}
+
+button.primary:hover {
+    background: #ffad42;
+}
+
+.result {
+    display: grid;
+    gap: 8px;
+}
+
+.result-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 3px;
+}
+
+.value {
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 11px;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+.copy {
+    margin-top: 5px;
+    padding: 6px 9px;
+    background: var(--cell);
+    color: white;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.status {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+}
+
+.warning {
+    color: #fbbf24;
+    font-size: 10px;
+    line-height: 1.4;
+    margin: 8px 2px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0,0,0,.82);
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+}
+
+.modal.show {
+    display: flex;
+    animation: fadeIn .2s ease;
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 430px;
+    background: #172235;
+    border: 1px solid var(--orange);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 15px 60px #0008;
+    animation: slideUp .25s ease;
+}
+
+.modal-header {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.success-icon {
+    width: 42px;
+    height: 42px;
+    margin: auto auto 8px;
+    border-radius: 50%;
+    background: #173e30;
+    color: #4ade80;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #4ade80;
+    font-size: 16px;
+}
+
+.modal-header p {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.modal-field {
+    margin-bottom: 10px;
+}
+
+.modal-field label {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-bottom: 5px;
+}
+
+.modal-value {
+    background: #0b1120;
+    padding: 9px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+.modal-actions {
+    display: grid;
+    gap: 7px;
+    margin-top: 14px;
+}
+
+.modal-actions button {
+    width: 100%;
+    padding: 10px;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.download-btn {
+    background: var(--orange);
+    color: #111827;
+}
+
+.reload-btn {
+    background: #29384e;
+    color: white;
+}
+
+.close-btn {
+    background: transparent;
+    color: var(--muted);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Планшеты и десктоп: те же 2×11, но крупнее и с кнопками ▲/▼ */
+@media (min-width: 600px) {
+    body { padding: 12px; }
+    .header h2 { font-size: 23px; }
+    .header p { font-size: 12px; }
+    .panel { padding: 12px; border-radius: 12px; margin-bottom: 12px; }
+    .section-title { font-size: 12px; margin-bottom: 9px; }
+    .address-input { padding: 11px; font-size: 12px; }
+
+    .dial {
+        gap: 6px 4px;
+        padding: 6px 2px 10px;
+    }
+    .digit-col { gap: 2px; }
+    .digit-col .pos-num { font-size: 10px; margin-bottom: 1px; }
+    .digit-col button {
+        display: block;
+        height: 22px;
+        font-size: 12px;
+        border-radius: 4px;
+    }
+    .digit-col .digit-value {
+        aspect-ratio: 1 / 1.1;
+        font-size: clamp(18px, 3.2vw, 28px);
+        border-radius: 5px;
+    }
+    .digit-col .digit-value.locked::after {
+        top: -6px;
+        right: -3px;
+        font-size: 10px;
+    }
+
+    .actions { gap: 8px; margin-top: 12px; }
+    button.action { padding: 11px 8px; font-size: 12px; border-radius: 7px; }
+    .result { gap: 12px; }
+    .result-label { font-size: 11px; margin-bottom: 5px; }
+    .value { font-size: 13px; line-height: 1.5; }
+    .copy { margin-top: 7px; padding: 7px 11px; font-size: 11px; }
+    .status { font-size: 12px; margin-top: 10px; }
+    .warning { font-size: 11px; line-height: 1.5; margin: 12px 2px; }
+
+    .modal-content { padding: 22px; border-radius: 14px; }
+    .modal-header { margin-bottom: 20px; }
+    .success-icon { width: 48px; height: 48px; font-size: 25px; }
+    .modal-header h3 { font-size: 19px; }
+    .modal-header p { font-size: 12px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { font-size: 11px; margin-bottom: 7px; }
+    .modal-value { padding: 11px; font-size: 12px; line-height: 1.6; }
+    .modal-actions { gap: 9px; margin-top: 20px; }
+    .modal-actions button { padding: 12px; border-radius: 7px; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h2>₿ Bitcoin DECIMAL Generator</h2>
+        <p>Кодовый замок · 22 цифры · 2 × 11 · 71 бит энтропии</p>
+    </div>
+
+    <div class="panel">
+        <div class="section-title">Bitcoin-адрес для проверки</div>
+        <input
+            id="targetAddress"
+            class="address-input"
+            type="text"
+            placeholder="Введите Bitcoin Legacy Address"
+            autocomplete="off"
+            spellcheck="false"
+        >
+    </div>
+
+    <div class="panel">
+        <div class="section-title">Кодовый замок · 22 цифры (0–9) · 2 ряда по 11</div>
+
+        <div class="lock-wrap">
+            <div class="dial" id="dial"></div>
+        </div>
+
+        <div class="actions">
+            <button class="action primary" id="randomBtn">Случайный ключ</button>
+            <button class="action" id="autoBtn">Автоклик: ВЫКЛ</button>
+            <button class="action" id="resetBtn">Сбросить</button>
+        </div>
+
+        <div class="status" id="lockStatus">Заблокировано: 0 / 22</div>
+    </div>
+
+    <div class="panel">
+        <div class="result">
+            <div>
+                <div class="result-label">Текущий DECIMAL-ключ (22 цифры)</div>
+                <div class="value" id="shortKey">0000000000000000000000</div>
+            </div>
+
+            <div>
+                <div class="result-label">HEX-ключ (64 символа)</div>
+                <div class="value" id="hexKey">0000000000000000000000000000000000000000000000000000000000000000</div>
+            </div>
+
+            <div>
+                <div class="result-label">Сгенерированный Bitcoin Address</div>
+                <div class="value" id="address">Ожидание...</div>
+                <button class="copy" id="copyBtn">Копировать адрес</button>
+            </div>
+        </div>
+        <div class="status" id="status">Ожидание проверки</div>
+    </div>
+
+    <p class="warning">
+        ⚠ 22 десятичные цифры обеспечивают ~71 бит энтропии (10^22 ≈ 2^73).
+        Не используйте такие ключи для хранения реальных Bitcoin-средств.
+    </p>
+
+</div>
+
+<div class="modal" id="successModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="success-icon">✓</div>
+            <h3>Адрес подтверждён!</h3>
+            <p>Сгенерированный адрес соответствует указанному адресу.</p>
+        </div>
+        <div class="modal-field">
+            <label>Bitcoin Address</label>
+            <div class="modal-value" id="modalAddress"></div>
+        </div>
+        <div class="modal-field">
+            <label>DECIMAL Private Key (22 цифры)</label>
+            <div class="modal-value" id="modalKey"></div>
+        </div>
+        <div class="modal-field">
+            <label>HEX Private Key (64 символа)</label>
+            <div class="modal-value" id="modalHex"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="download-btn" id="downloadBtn">↓ Скачать результат TXT</button>
+            <button class="reload-btn" id="reloadBtn">↻ Обновить страницу</button>
+            <button class="close-btn" id="closeBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+
+import { secp256k1 } from "https://esm.sh/@noble/curves@1.8.1/secp256k1.js";
+import { sha256 } from "https://esm.sh/@noble/hashes@1.7.1/sha2.js";
+import { ripemd160 } from "https://esm.sh/@noble/hashes@1.7.1/ripemd160.js";
+import bs58 from "https://esm.sh/bs58@6.0.0";
+
+const LENGTH = 22;
+const DIGITS = "0123456789";
+const selected = Array(LENGTH).fill("0");
+const locked = Array(LENGTH).fill(false);
+
+const dial = document.getElementById("dial");
+const keyDisplay = document.getElementById("shortKey");
+const hexKeyDisplay = document.getElementById("hexKey");
+const addressDisplay = document.getElementById("address");
+const statusDisplay = document.getElementById("status");
+const lockStatus = document.getElementById("lockStatus");
+
+const FIXED_ADDRESS = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU";
+document.getElementById("targetAddress").value = FIXED_ADDRESS;
+
+let currentAddress = "";
+let currentKey = "";
+let currentKeyHex = "";
+let autoClick = null;
+
+// ===== СОЗДАНИЕ ЗАМКА =====
+for (let i = 0; i < LENGTH; i++) {
+    const col = document.createElement("div");
+    col.className = "digit-col";
+
+    const pos = document.createElement("div");
+    pos.className = "pos-num";
+    pos.textContent = i + 1;
+    col.appendChild(pos);
+
+    const up = document.createElement("button");
+    up.type = "button";
+    up.textContent = "▲";
+    up.title = "Увеличить цифру";
+    up.addEventListener("click", () => {
+        if (locked[i]) return;
+        const cur = parseInt(selected[i], 10);
+        selected[i] = String((cur + 1) % 10);
+        updateColumn(i);
+        update();
+    });
+    col.appendChild(up);
+
+    const val = document.createElement("div");
+    val.className = "digit-value";
+    val.tabIndex = 0;
+    val.textContent = selected[i];
+    val.dataset.index = i;
+    val.title = "Свайп/колесо — изменить, клик — блокировать";
+
+    // Колесо мыши
+    val.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        if (locked[i]) return;
+        const cur = parseInt(selected[i], 10);
+        const dir = e.deltaY > 0 ? 1 : -1;
+        selected[i] = String((cur + dir + 10) % 10);
+        updateColumn(i);
+        update();
+    }, { passive: false });
+
+    // Клик — блокировка
+    val.addEventListener("click", () => {
+        locked[i] = !locked[i];
+        updateColumn(i);
+        updateLockStatus();
+    });
+
+    // Клавиатура
+    val.addEventListener("keydown", (e) => {
+        if (locked[i]) return;
+        const cur = parseInt(selected[i], 10);
+        if (e.key === "ArrowUp") {
+            e.preventDefault();
+            selected[i] = String((cur + 1) % 10);
+        } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            selected[i] = String((cur - 1 + 10) % 10);
+        } else {
+            return;
+        }
+        updateColumn(i);
+        update();
+    });
+
+    // Свайп пальцем
+    let touchStartY = 0;
+    let touchMoved = false;
+    val.addEventListener("touchstart", (e) => {
+        touchStartY = e.touches[0].clientY;
+        touchMoved = false;
+    }, { passive: true });
+
+    val.addEventListener("touchmove", (e) => {
+        if (locked[i]) return;
+        const dy = e.touches[0].clientY - touchStartY;
+        if (Math.abs(dy) > 18) {
+            touchMoved = true;
+            const cur = parseInt(selected[i], 10);
+            const dir = dy < 0 ? 1 : -1;
+            selected[i] = String((cur + dir + 10) % 10);
+            updateColumn(i);
+            update();
+            touchStartY = e.touches[0].clientY;
+        }
+    }, { passive: true });
+
+    val.addEventListener("touchend", (e) => {
+        if (touchMoved) {
+            e.preventDefault();
+            touchMoved = false;
+        }
+    }, { passive: false });
+
+    col.appendChild(val);
+
+    const down = document.createElement("button");
+    down.type = "button";
+    down.textContent = "▼";
+    down.title = "Уменьшить цифру";
+    down.addEventListener("click", () => {
+        if (locked[i]) return;
+        const cur = parseInt(selected[i], 10);
+        selected[i] = String((cur - 1 + 10) % 10);
+        updateColumn(i);
+        update();
+    });
+    col.appendChild(down);
+
+    dial.appendChild(col);
+}
+
+// ===== ОБНОВЛЕНИЕ КОЛОНКИ =====
+function updateColumn(i) {
+    const col = dial.children[i];
+    const val = col.querySelector(".digit-value");
+    val.textContent = selected[i];
+    val.classList.toggle("locked", locked[i]);
+    val.classList.toggle("active", true);
+}
+
+function updateAllColumns() {
+    for (let i = 0; i < LENGTH; i++) updateColumn(i);
+    updateLockStatus();
+}
+
+function updateLockStatus() {
+    const count = locked.filter(Boolean).length;
+    lockStatus.textContent = "Заблокировано: " + count + " / " + LENGTH;
+}
+
+// ===== BASE58CHECK =====
+function base58Check(payload) {
+    const first = sha256(payload);
+    const second = sha256(first);
+    const checksum = second.slice(0, 4);
+    const result = new Uint8Array(payload.length + 4);
+    result.set(payload);
+    result.set(checksum, payload.length);
+    return bs58.encode(result);
+}
+
+// ===== DECIMAL → BITCOIN ADDRESS =====
+function generateAddress(decimal) {
+    if (!/^[0-9]{22}$/.test(decimal)) {
+        throw new Error("Invalid DECIMAL");
+    }
+    const n = BigInt(decimal);
+    if (n <= 0n || n >= secp256k1.CURVE.n) {
+        throw new Error("Private key out of range");
+    }
+    const privateBytes = new Uint8Array(32);
+    let temp = n;
+    for (let i = 31; i >= 0; i--) {
+        privateBytes[i] = Number(temp & 0xffn);
+        temp >>= 8n;
+    }
+    const publicKey = secp256k1.getPublicKey(privateBytes, true);
+    const publicHash = ripemd160(sha256(publicKey));
+    const payload = new Uint8Array(21);
+    payload[0] = 0x00;
+    payload.set(publicHash, 1);
+    return base58Check(payload);
+}
+
+// ===== ОБНОВЛЕНИЕ РЕЗУЛЬТАТА =====
+function update() {
+    const decimal = selected.join("");
+    keyDisplay.textContent = decimal;
+
+    let hex = "0".repeat(64);
+    try {
+        const n = BigInt(decimal);
+        hex = n.toString(16).toUpperCase().padStart(64, "0");
+    } catch {
+        hex = "0".repeat(64);
+    }
+    hexKeyDisplay.textContent = hex;
+
+    try {
+        const address = generateAddress(decimal);
+        currentAddress = address;
+        currentKey = decimal;
+        currentKeyHex = hex;
+        addressDisplay.textContent = address;
+
+        const target = document.getElementById("targetAddress").value.trim();
+        if (!target) {
+            statusDisplay.textContent = "Введите адрес для проверки";
+            return;
+        }
+        if (address === target) {
+            statusDisplay.textContent = "✓ Совпадение подтверждено";
+            showSuccess(address, decimal, hex);
+        } else {
+            statusDisplay.textContent = "Адрес не совпадает с указанным";
+        }
+    } catch (error) {
+        currentAddress = "";
+        currentKey = "";
+        currentKeyHex = "";
+        addressDisplay.textContent = "Некорректный приватный ключ";
+        statusDisplay.textContent = "Ошибка генерации";
+    }
+}
+
+// ===== ПРОВЕРКА ВВЕДЁННОГО АДРЕСА =====
+document.getElementById("targetAddress").addEventListener("input", update);
+
+// ===== СЛУЧАЙНАЯ ГЕНЕРАЦИЯ =====
+function randomize() {
+    for (let i = 0; i < LENGTH; i++) {
+        if (locked[i]) continue;
+        const r = new Uint8Array(1);
+        let d;
+        do {
+            crypto.getRandomValues(r);
+            d = r[0];
+        } while (d >= 250);
+        selected[i] = DIGITS[d % 10];
+        updateColumn(i);
+    }
+    updateLockStatus();
+    update();
+}
+
+// ===== СБРОС =====
+function resetKey() {
+    selected.fill("0");
+    locked.fill(false);
+    updateAllColumns();
+    update();
+}
+
+// ===== АВТОКЛИК =====
+const randomBtn = document.getElementById("randomBtn");
+const autoBtn = document.getElementById("autoBtn");
+
+function startAutoClick() {
+    if (autoClick !== null) return;
+    autoClick = setInterval(randomize, 10);
+    autoBtn.textContent = "Автоклик: ВКЛ";
+}
+
+function stopAutoClick() {
+    if (autoClick !== null) {
+        clearInterval(autoClick);
+        autoClick = null;
+    }
+    autoBtn.textContent = "Автоклик: ВЫКЛ";
+}
+
+autoBtn.addEventListener("click", () => {
+    if (autoClick !== null) stopAutoClick();
+    else startAutoClick();
+});
+
+// ===== МОДАЛЬНОЕ ОКНО =====
+function showSuccess(address, key, hex) {
+    document.getElementById("modalAddress").textContent = address;
+    document.getElementById("modalKey").textContent = key;
+    document.getElementById("modalHex").textContent = hex;
+    document.getElementById("successModal").classList.add("show");
+}
+
+function closeModal() {
+    document.getElementById("successModal").classList.remove("show");
+}
+
+// ===== СКАЧИВАНИЕ =====
+function downloadResult() {
+    if (!currentAddress || !currentKey) return;
+    const content =
+`BITCOIN ADDRESS
+${currentAddress}
+
+DECIMAL PRIVATE KEY
+${currentKey}
+
+HEX PRIVATE KEY
+${currentKeyHex}
+
+Format: Bitcoin Legacy P2PKH
+Entropy: 22 decimal digits (~71 bits)
+`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bitcoin-result.txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ===== КОПИРОВАНИЕ =====
+async function copyAddress() {
+    if (!currentAddress) return;
+    try {
+        await navigator.clipboard.writeText(currentAddress);
+        document.getElementById("copyBtn").textContent = "Скопировано ✓";
+    } catch {
+        statusDisplay.textContent = "Не удалось скопировать адрес";
+    }
+}
+
+// ===== ОБРАБОТЧИКИ =====
+randomBtn.addEventListener("click", randomize);
+document.getElementById("resetBtn").addEventListener("click", resetKey);
+document.getElementById("copyBtn").addEventListener("click", copyAddress);
+document.getElementById("downloadBtn").addEventListener("click", downloadResult);
+document.getElementById("reloadBtn").addEventListener("click", () => {
+    stopAutoClick();
+    location.reload();
+});
+document.getElementById("closeBtn").addEventListener("click", closeModal);
+
+// ===== ИНИЦИАЛИЗАЦИЯ =====
+updateAllColumns();
+update();
+
+</script>
+
+</body>
+</html>
