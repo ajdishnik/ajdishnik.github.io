@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Bitcoin DECIMAL Generator — fast sequential auto</title>
+<title>Bitcoin DECIMAL Generator — комбинаторный перебор (быстрый)</title>
 
 <style>
 :root {
@@ -27,19 +27,108 @@ body { margin: 0; padding: 8px; background: var(--bg); color: var(--text); font-
 .address-input:focus { border-color: var(--orange); }
 .lock-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .dial { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: auto; gap: 4px 6px; width: 100%; padding: 4px 0 6px; overflow: hidden; }
-.digit-col { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; justify-self: center; }
+/* ===== КОДОВЫЙ ЗАМОК: 2 ряда по 11 ===== */
+.lock-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.dial {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    gap: 4px 6px;
+    width: 100%;
+    padding: 4px 0 6px;
+    overflow: hidden;
+}
+
+.digit-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 0;
+    <!-- max-width: 60px;        /* было 84px */ -->
+    justify-self: center;
+}
+
+/* Последний ряд — 4 цифры по центру (колонки 2,3,4,5 из 6) */
 .dial > .digit-col:nth-child(19) { grid-column: 2; }
 .dial > .digit-col:nth-child(20) { grid-column: 3; }
 .dial > .digit-col:nth-child(21) { grid-column: 4; }
 .dial > .digit-col:nth-child(22) { grid-column: 5; }
-.digit-col .pos-num { font-size: 8px; color: var(--muted); margin-bottom: 0; line-height: 1; }
-.digit-col button { display: none; width: 100%; height: 18px; border: 1px solid var(--border); background: var(--cell); color: var(--text); border-radius: 3px; cursor: pointer; font-size: 9px; padding: 0; line-height: 1; }
-.digit-col button:hover { background: #37465d; }
-.digit-col .digit-value { width: 100%; height: 56px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-family: monospace; font-size: 26px; font-weight: bold; color: var(--orange); user-select: none; cursor: pointer; position: relative; touch-action: none; }
-.digit-col .digit-value.locked { background: #24543e; border-color: #4ade80; color: white; cursor: default; }
-.digit-col .digit-value.locked::after { content: "🔒"; position: absolute; top: -4px; right: -2px; font-size: 8px; }
-.digit-col .digit-value.active { border-color: var(--orange); }
-.digit-col .digit-value:focus { outline: 2px solid var(--orange); outline-offset: 1px; }
+
+.digit-col .pos-num {
+    font-size: 8px;
+    color: var(--muted);
+    margin-bottom: 0;
+    line-height: 1;
+}
+
+
+.digit-col button {
+    display: block; /* скрыто на мобильных */
+    width: 100%;
+    height: 18px;
+    border: 1px solid var(--border);
+    background: var(--cell);
+    color: var(--text);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 9px;
+    padding: 0;
+    line-height: 1;
+}
+
+.digit-col button:hover {
+    background: #37465d;
+}
+
+.digit-col .digit-value {
+    width: 100%;
+    height: 56px;           /* фиксированная высота вместо aspect-ratio */
+    aspect-ratio: auto;     /* убрать пропорцию */
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 26px;        /* было clamp(14px, 5.2vw, 44px) */
+    font-weight: bold;
+    color: var(--orange);
+    user-select: none;
+    cursor: pointer;
+    position: relative;
+    touch-action: none;
+}
+
+.digit-col .digit-value.locked {
+    background: #24543e;
+    border-color: #4ade80;
+    color: white;
+    cursor: default;
+}
+
+.digit-col .digit-value.locked::after {
+    content: "🔒";
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    font-size: 8px;
+}
+
+.digit-col .digit-value.active {
+    border-color: var(--orange);
+}
+
+.digit-col .digit-value:focus {
+    outline: 2px solid var(--orange);
+    outline-offset: 1px;
+}
 .actions { display: flex; gap: 6px; margin-top: 8px; }
 button.action { flex: 1; padding: 9px 6px; border: 0; border-radius: 6px; background: var(--cell); color: white; cursor: pointer; font-size: 11px; font-weight: 600; }
 button.action:hover { background: #37465d; }
@@ -51,24 +140,10 @@ button.action.auto-on { background: #173e30; color: #4ade80; box-shadow: 0 0 0 1
 .value { color: var(--orange); font-family: monospace; font-size: 11px; word-break: break-all; line-height: 1.4; }
 .copy { margin-top: 5px; padding: 6px 9px; background: var(--cell); color: white; border: 0; border-radius: 5px; cursor: pointer; font-size: 10px; }
 .status { font-size: 11px; color: var(--muted); margin-top: 6px; }
-
-/* прогресс-бар */
 .progress-wrap { margin-top: 8px; }
-.progress-bar {
-    height: 8px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-}
-.progress-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #f7931a, #ffb84d);
-    transition: width 0.2s linear;
-}
+.progress-bar { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #f7931a, #ffb84d); transition: width 0.2s linear; }
 .progress-text { font-size: 10px; color: var(--muted); margin-top: 4px; display: flex; justify-content: space-between; }
-
 .warning { color: #fbbf24; font-size: 10px; line-height: 1.4; margin: 8px 2px; }
 .modal { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.82); align-items: center; justify-content: center; padding: 12px; }
 .modal.show { display: flex; animation: fadeIn .2s ease; }
@@ -129,7 +204,7 @@ button.action.auto-on { background: #173e30; color: #4ade80; box-shadow: 0 0 0 1
 
     <div class="header">
         <h2>₿ Bitcoin DECIMAL Generator</h2>
-        <p>Ручной режим · 22 цифры · Автоклик = быстрый последовательный перебор по свободным разрядам</p>
+        <p>Комбинаторный перебор по свободным разрядам · предвычисление T_i = 10^p·G</p>
     </div>
 
     <div class="panel">
@@ -216,7 +291,7 @@ button.action.auto-on { background: #173e30; color: #4ade80; box-shadow: 0 0 0 1
 
 <script>
 /* ============================================================
-   Воркер
+   Воркер: комбинаторный перебор с предвычислением T_i = 10^p·G
    ============================================================ */
 function workerCode() {
 return `
@@ -490,7 +565,6 @@ function addressFromBig(k) {
 }
 
 let running = false;
-let batch = 256;
 let targetPrefix = null;
 let prefixK = 0;
 let targetAddrGlobal = "";
@@ -507,35 +581,90 @@ function setTarget(addrBase58) {
   } catch { targetPrefix = null; prefixK = 0; }
 }
 
-function scanRange(startK, endK, wid, wcount) {
+/* Раскладывает idx в цифры свободных разрядов и возвращает их массив */
+function digitsFromIdx(idx, freeIdx) {
+  const digs = new Array(freeIdx.length);
+  let v = idx;
+  const ten = 10n;
+  for (let t = freeIdx.length - 1; t >= 0; t--) {
+    digs[t] = Number(v % ten);
+    v /= ten;
+  }
+  return digs;
+}
+
+/* Собирает ключ-строку из baseLocked + цифр свободных разрядов */
+function keyFromIdx(idx, baseLocked, freeIdx) {
+  const out = baseLocked.slice();
+  let v = idx;
+  const ten = 10n;
+  for (let t = freeIdx.length - 1; t >= 0; t--) {
+    out[freeIdx[t]] = String(Number(v % ten));
+    v /= ten;
+  }
+  return out.join('');
+}
+
+/* ============================================================
+   Предвычисление: baseG и T_i = 10^(p_i) * G
+   p_i — позиция свободного разряда в 22-значном DECIMAL (справа налево, 0..21)
+   Позиция i в строке соответствует 10^(LENGTH-1-i).
+   ============================================================ */
+function buildTables(baseLocked, freeIdx) {
+  const baseStr = baseLocked.join('');
+  const baseK = decimalToBigInt(baseStr);
+  const basePt = mulG(baseK % N);
+
+  const T = [];
+  for (let t = 0; t < freeIdx.length; t++) {
+    const pos = freeIdx[t];
+    // 10^(LENGTH-1-pos) * G
+    let pow = 1n;
+    for (let e = 0; e < (22 - 1 - pos); e++) pow *= 10n;
+    const Ti = mulG((pow % N));
+    T.push(Ti);
+  }
+  return { basePt, T };
+}
+
+function scanRange(idxStart, idxEnd, wid, wcount, baseLocked, freeIdx, basePt, T) {
   running = true;
-  const span = endK - startK + 1n;
+  const span = idxEnd - idxStart + 1n;
   const per = (span + BigInt(wcount) - 1n) / BigInt(wcount);
-  let myS = startK + BigInt(wid) * per;
+  let myS = idxStart + BigInt(wid) * per;
   let myE = myS + per - 1n;
-  if (myE > endK) myE = endK;
-  if (myS > endK) { self.postMessage({ type: 'scanDone', workerId: wid }); return; }
+  if (myE > idxEnd) myE = idxEnd;
+  if (myS > idxEnd) { self.postMessage({ type: 'scanDone', workerId: wid }); return; }
 
-  let sp = mulG(myS);
-  if (!sp) { self.postMessage({ type: 'scanDone', workerId: wid }); return; }
-  let X = sp[0], Y = sp[1], Z = 1n;
-  let k = myS;
-
-  const bX = new Array(batch), bY = new Array(batch), bZ = new Array(batch), bK = new Array(batch);
+  const batch = 256;
   let lastReport = Date.now();
   let cnt = 0;
+  let idx = myS;
 
-  while (running && k <= myE) {
+  const bX = new Array(batch), bY = new Array(batch), bZ = new Array(batch), bIdx = new Array(batch);
+
+  while (running && idx <= myE) {
     let n = 0;
-    for (let i = 0; i < batch; i++) {
-      if (k > myE) break;
-      bX[n] = X; bY[n] = Y; bZ[n] = Z; bK[n] = k; n++;
-      const nx = jacAdd(X, Y, Z, Gx, Gy);
-      X = nx[0]; Y = nx[1]; Z = nx[2];
-      k += 1n;
+    for (let b = 0; b < batch && idx <= myE; b++, idx += 1n) {
+      // Раскладываем idx в цифры
+      const digs = digitsFromIdx(idx, freeIdx);
+
+      // P = basePt + Σ d_i * T_i
+      // Начинаем с basePt в проективных координатах
+      let X = basePt[0], Y = basePt[1], Z = 1n;
+      for (let t = 0; t < freeIdx.length; t++) {
+        let d = digs[t];
+        if (d === 0) continue;
+        // Прибавляем T_i d раз (d ≤ 9, можно чуть ускорить, но для простоты так)
+        for (let q = 0; q < d; q++) {
+          const nx = jacAdd(X, Y, Z, T[t][0], T[t][1]);
+          X = nx[0]; Y = nx[1]; Z = nx[2];
+        }
+      }
+      bX[n] = X; bY[n] = Y; bZ[n] = Z; bIdx[n] = idx; n++;
     }
     if (n === 0) break;
-    bX.length = n; bY.length = n; bZ.length = n; bK.length = n;
+    bX.length = n; bY.length = n; bZ.length = n; bIdx.length = n;
 
     const res = batchAff(bX, bY, bZ);
     const aX = res[0], aY = res[1];
@@ -556,8 +685,9 @@ function scanRange(startK, endK, wid, wcount) {
       const addr = h160ToAddr(h);
       cnt++;
       if (addr === targetAddrGlobal) {
-        const keyDec = bK[i].toString(10).padStart(22, '0');
-        self.postMessage({ type: 'HIT', workerId: wid, decimal: keyDec, addr, keyHex: bK[i].toString(16) });
+        const keyStr = keyFromIdx(bIdx[i], baseLocked, freeIdx);
+        const keyBig = decimalToBigInt(keyStr);
+        self.postMessage({ type: 'HIT', workerId: wid, decimal: keyStr, addr, keyHex: keyBig.toString(16) });
         running = false;
         return;
       }
@@ -565,7 +695,9 @@ function scanRange(startK, endK, wid, wcount) {
 
     const now = Date.now();
     if (now - lastReport > 200) {
-      self.postMessage({ type: 'progress', workerId: wid, count: cnt, lastKey: (k - 1n).toString(10).padStart(22, '0') });
+      const lastIdx = idx - 1n;
+      const lastKeyStr = keyFromIdx(lastIdx, baseLocked, freeIdx);
+      self.postMessage({ type: 'progress', workerId: wid, count: cnt, lastKey: lastKeyStr, lastIdx: lastIdx.toString() });
       cnt = 0;
       lastReport = now;
     }
@@ -581,11 +713,12 @@ self.onmessage = (e) => {
     return;
   }
   if (d.cmd === 'scanStart') {
-    batch = d.batch || 256;
     setTarget(d.target);
-    const startK = decimalToBigInt(d.start);
-    const endK   = decimalToBigInt(d.end);
-    scanRange(startK, endK, d.workerId, d.workerCount);
+    const idxStart = BigInt(d.idxStart);
+    const idxEnd   = BigInt(d.idxEnd);
+    // Каждый воркер считает basePt и T сам — один раз, это дёшево
+    const { basePt, T } = buildTables(d.baseLocked, d.freeIdx);
+    scanRange(idxStart, idxEnd, d.workerId, d.workerCount, d.baseLocked, d.freeIdx, basePt, T);
     return;
   }
   if (d.cmd === 'stop') { running = false; return; }
@@ -770,35 +903,27 @@ const autoState = {
   lastTick: 0,
   lastTotal: 0,
   total: 0,
-  rangeSize: 0n,
-  rangeStart: "",
-  rangeEnd: "",
+  totalComb: 0n,
+  baseLocked: [],
   freeIdx: [],
-  lockedSnapshot: [],
   lastKey: "",
-  batchSize: 256,
   workerCount: 4,
   emaKps: 0,
+  lockedSnapshot: [],
 };
 
 const autoBtn = document.getElementById("autoBtn");
 let rateTimer = null;
 
-function buildAutoRange() {
-  const startArr = [];
-  const endArr = [];
+function buildCombo() {
+  const baseLocked = selected.slice();
   const freeIdx = [];
   for (let i = 0; i < LENGTH; i++) {
-    if (locked[i]) {
-      startArr[i] = selected[i];
-      endArr[i] = selected[i];
-    } else {
-      startArr[i] = "0";
-      endArr[i] = "9";
-      freeIdx.push(i);
-    }
+    if (!locked[i]) freeIdx.push(i);
+    else baseLocked[i] = selected[i];
   }
-  return { start: startArr.join(""), end: endArr.join(""), freeIdx };
+  const totalComb = 10n ** BigInt(freeIdx.length);
+  return { baseLocked, freeIdx, totalComb };
 }
 
 function startAuto() {
@@ -812,33 +937,26 @@ function startAuto() {
     return;
   }
 
-  const { start, end, freeIdx } = buildAutoRange();
-  const startB = BigInt(start), endB = BigInt(end);
-  if (startB >= endB) {
-    statusDisplay.textContent = "Диапазон перебора пуст";
-    return;
-  }
-
-  const size = endB - startB + 1n;
+  const { baseLocked, freeIdx, totalComb } = buildCombo();
+  if (totalComb <= 0n) { statusDisplay.textContent = "Нечего перебирать"; return; }
 
   autoState.running = true;
   autoState.startedAt = performance.now();
   autoState.lastTick = autoState.startedAt;
   autoState.lastTotal = 0;
   autoState.total = 0;
-  autoState.rangeSize = size;
+  autoState.totalComb = totalComb;
   autoState.done.clear();
   autoState.workers = [];
-  autoState.lastKey = start;
-  autoState.rangeStart = start;
-  autoState.rangeEnd = end;
+  autoState.baseLocked = baseLocked;
   autoState.freeIdx = freeIdx.slice();
   autoState.lockedSnapshot = locked.slice();
   autoState.emaKps = 0;
+  autoState.lastKey = "";
 
   autoBtn.textContent = "Автоклик: ВКЛ (стоп)";
   autoBtn.classList.add("auto-on");
-  statusDisplay.textContent = "Перебор: " + start + " … " + end;
+  statusDisplay.textContent = "Комбинаторный перебор: " + totalComb.toString() + " комбинаций";
   resetRateTimer();
   updateProgress(0);
 
@@ -854,9 +972,10 @@ function startAuto() {
       workerId: i,
       workerCount: nw,
       target,
-      start,
-      end,
-      batch: autoState.batchSize,
+      idxStart: "0",
+      idxEnd: (totalComb - 1n).toString(),
+      baseLocked,
+      freeIdx,
     });
     autoState.workers.push(w);
   }
@@ -884,7 +1003,6 @@ function resetRateTimer() {
     const dt = (now - autoState.lastTick) / 1000;
     if (dt <= 0) return;
     const instant = (autoState.total - autoState.lastTotal) / dt;
-    // EMA-сглаживание
     const alpha = 0.35;
     autoState.emaKps = autoState.emaKps === 0 ? instant : autoState.emaKps * (1 - alpha) + instant * alpha;
     autoState.lastTick = now;
@@ -892,14 +1010,14 @@ function resetRateTimer() {
     const kps = (autoState.emaKps / 1000).toFixed(1);
     statsDisplay.textContent =
       "Проверено: " + autoState.total.toLocaleString("en-US") +
-      " / " + autoState.rangeSize.toString() +
+      " / " + autoState.totalComb.toString() +
       " · " + kps + " k/s" +
       " · Сейчас: " + autoState.lastKey;
   }, 300);
 }
 
 function updateProgress(done) {
-  const total = autoState.rangeSize;
+  const total = autoState.totalComb;
   let pct = 0;
   if (total > 0n) {
     const doneB = BigInt(done);
@@ -911,11 +1029,25 @@ function updateProgress(done) {
   progressRight.textContent = pct.toFixed(2) + "%";
 }
 
-function applyProgressKeyToLock(dec) {
+function comboKeyFromBig(idxBig, baseLocked, freeIdx) {
+  const out = baseLocked.slice();
+  let v = idxBig;
+  const ten = 10n;
+  for (let t = freeIdx.length - 1; t >= 0; t--) {
+    const pos = freeIdx[t];
+    out[pos] = String(Number(v % ten));
+    v /= ten;
+  }
+  return out.join('');
+}
+
+function applyComboToLock(idxBig) {
+  const keyStr = comboKeyFromBig(idxBig, autoState.baseLocked, autoState.freeIdx);
+  autoState.lastKey = keyStr;
   for (let i = 0; i < LENGTH; i++) {
     if (autoState.lockedSnapshot[i]) continue;
-    if (selected[i] !== dec[i]) {
-      selected[i] = dec[i];
+    if (selected[i] !== keyStr[i]) {
+      selected[i] = keyStr[i];
       updateColumn(i);
     }
   }
@@ -926,20 +1058,19 @@ function handleAutoMsg(e, idx) {
   if (!autoState.running) return;
   if (d.type === "progress") {
     autoState.total += d.count;
-    autoState.lastKey = d.lastKey;
-    applyProgressKeyToLock(d.lastKey);
+    applyComboToLock(BigInt(d.lastIdx));
     keyDisplay.textContent = selected.join("");
     try { hexKeyDisplay.textContent = BigInt(selected.join("")).toString(16).toUpperCase().padStart(64, "0"); } catch {}
     updateProgress(autoState.total);
   } else if (d.type === "scanDone") {
     autoState.done.add(idx);
     if (autoState.done.size >= autoState.workerCount && autoState.running) {
-      // Диапазон полностью пройден — останавливаемся
-      autoState.total = Number(autoState.rangeSize);
+      autoState.total = Number(autoState.totalComb);
+      applyComboToLock(autoState.totalComb - 1n);
       updateProgress(autoState.total);
       statsDisplay.textContent =
         "Проверено: " + autoState.total.toLocaleString("en-US") +
-        " / " + autoState.rangeSize.toString() +
+        " / " + autoState.totalComb.toString() +
         " · 100.00% · готово";
       stopAuto();
       statusDisplay.textContent = "Перебор завершён. Совпадений нет.";
@@ -956,7 +1087,7 @@ function handleAutoMsg(e, idx) {
     statusDisplay.textContent = "✓ Совпадение подтверждено (автоперебор)";
     showSuccess(d.addr, dec, hex);
     statsDisplay.textContent = "Найдено на ключе: " + dec;
-    updateProgress(Number(autoState.rangeSize));
+    updateProgress(Number(autoState.totalComb));
   }
 }
 
