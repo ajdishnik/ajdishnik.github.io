@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bitcoin Vanity Generator · 71 бит</title>
+
+<style>
+:root {
+    --bg: #0b1120;
+    --panel: #151f30;
+    --cell: #202c40;
+    --border: #2b3a50;
+    --orange: #f7931a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --green: #4ade80;
+}
+
+* {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 12px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    max-width: 520px;
+    margin: auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.header h2 {
+    color: var(--orange);
+    margin: 6px 0;
+    font-size: 20px;
+}
+
+.header p {
+    color: var(--muted);
+    font-size: 11px;
+    margin: 0;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.section-title {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+
+.address-input {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: white;
+    outline: none;
+    font-size: 12px;
+}
+
+.address-input:focus {
+    border-color: var(--orange);
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.row > * {
+    flex: 1;
+}
+
+/* --- СЕТКА 7 × 10 + 1 = 71 бит --- */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    max-width: 440px;
+    margin: 0 auto;
+}
+
+.bit {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    background: var(--cell);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: .12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    user-select: none;
+}
+
+.bit:hover {
+    background: #37465d;
+}
+
+.bit.active {
+    background: var(--orange);
+    color: #111827;
+    border-color: var(--orange);
+}
+
+.bit.locked {
+    background: #24543e;
+    color: white;
+    border-color: var(--green);
+}
+
+.bit.found {
+    background: var(--green);
+    color: #0b1120;
+    border-color: var(--green);
+    animation: pulse .8s ease infinite alternate;
+}
+
+.lock-icon {
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    font-size: 9px;
+    pointer-events: none;
+}
+
+@keyframes pulse {
+    from { box-shadow: 0 0 0 0 #4ade8066; }
+    to   { box-shadow: 0 0 0 6px #4ade8000; }
+}
+
+/* --- КНОПКИ --- */
+.actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+button.action {
+    flex: 1;
+    padding: 10px 6px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--cell);
+    color: white;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+button.action:hover {
+    background: #37465d;
+}
+
+button.primary {
+    background: var(--orange);
+    color: #111827;
+}
+
+button.primary:hover {
+    background: #ffad42;
+}
+
+button.action:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+/* --- РЕЗУЛЬТАТ --- */
+.result {
+    display: grid;
+    gap: 10px;
+}
+
+.result-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.value {
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.copy {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--cell);
+    color: white;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.status {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.status.ok { color: var(--green); }
+.status.warn { color: #fbbf24; }
+
+.warning {
+    color: #fbbf24;
+    font-size: 10px;
+    line-height: 1.5;
+    margin: 10px 2px;
+}
+
+/* --- МОДАЛКА --- */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0,0,0,.82);
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+}
+
+.modal.show {
+    display: flex;
+    animation: fadeIn .2s ease;
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 400px;
+    background: #172235;
+    border: 1px solid var(--orange);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 15px 60px #0008;
+    animation: slideUp .25s ease;
+}
+
+.modal-header {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.success-icon {
+    width: 44px;
+    height: 44px;
+    margin: auto auto 10px;
+    border-radius: 50%;
+    background: #173e30;
+    color: var(--green);
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--green);
+    font-size: 17px;
+}
+
+.modal-header p {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.modal-field {
+    margin-bottom: 12px;
+}
+
+.modal-field label {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-bottom: 6px;
+}
+
+.modal-value {
+    background: #0b1120;
+    padding: 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    color: var(--orange);
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+.modal-actions {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.modal-actions button {
+    width: 100%;
+    padding: 11px;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.download-btn { background: var(--orange); color: #111827; }
+.reload-btn { background: #29384e; color: white; }
+.close-btn { background: transparent; color: var(--muted); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media(max-width: 420px) {
+    body { padding: 8px; }
+    .grid { gap: 3px; }
+    .bit { font-size: 12px; border-radius: 3px; }
+    .header h2 { font-size: 18px; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h2>₿ Bitcoin Vanity Generator</h2>
+        <p>Сетка 7 × 10 + 1 = 71 бит</p>
+    </div>
+
+    <!-- ПАНЕЛЬ VANITY-ПАТТЕРНА -->
+    <div class="panel">
+        <div class="section-title">Vanity-паттерн (подстрока адреса)</div>
+        <input
+            id="vanityPattern"
+            class="address-input"
+            type="text"
+            placeholder="например: 1Love, Satoshi, 777"
+            autocomplete="off"
+            spellcheck="false"
+        >
+        <div class="row">
+            <select id="matchMode" class="address-input">
+                <option value="startsWith">В начале</option>
+                <option value="includes" selected>В любом месте</option>
+                <option value="endsWith">В конце</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- БИТОВАЯ СЕТКА -->
+    <div class="panel">
+        <div class="section-title">Битовая сетка · 7 × 10 + 1 = 71 бит (🔒 = зафиксирован)</div>
+
+        <div class="grid" id="bitGrid"></div>
+
+        <div class="actions">
+            <button class="action primary" id="randomBtn">Случайный</button>
+            <button class="action" id="autoBtn">Поиск: ВЫКЛ</button>
+            <button class="action" id="resetBtn">Сброс</button>
+        </div>
+
+        <div class="status" id="lockStatus">Заблокировано: 0 / 71</div>
+    </div>
+
+    <!-- РЕЗУЛЬТАТ -->
+    <div class="panel">
+        <div class="result">
+            <div>
+                <div class="result-label">Битовый ключ (71 бит)</div>
+                <div class="value" id="shortKey">00000000000000000000000000000000000000000000000000000000000000000000000</div>
+            </div>
+            <div>
+                <div class="result-label">Bitcoin Address</div>
+                <div class="value" id="address">Ожидание...</div>
+                <button class="copy" id="copyBtn">Копировать адрес</button>
+            </div>
+        </div>
+        <div class="status" id="status">Готов к поиску</div>
+    </div>
+
+    <p class="warning">
+        ⚠ 71 бит — низкая энтропия (2⁷¹ ключей против 2²⁵⁶). Паттерны длиннее 4 символов практически недостижимы. Не используйте для реальных средств.
+    </p>
+
+</div>
+
+<!-- МОДАЛКА УСПЕХА -->
+<div class="modal" id="successModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="success-icon">✓</div>
+            <h3>Vanity-адрес найден!</h3>
+            <p id="modalSubtitle">Совпадение с паттерном.</p>
+        </div>
+        <div class="modal-field">
+            <label>Bitcoin Address</label>
+            <div class="modal-value" id="modalAddress"></div>
+        </div>
+        <div class="modal-field">
+            <label>HEX Private Key</label>
+            <div class="modal-value" id="modalKey"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="download-btn" id="downloadBtn">↓ Скачать TXT</button>
+            <button class="reload-btn" id="reloadBtn">↻ Обновить</button>
+            <button class="close-btn" id="closeBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+
+import { secp256k1 } from "https://esm.sh/@noble/curves@1.8.1/secp256k1.js";
+import { sha256 } from "https://esm.sh/@noble/hashes@1.7.1/sha2.js";
+import { ripemd160 } from "https://esm.sh/@noble/hashes@1.7.1/ripemd160.js";
+import bs58 from "https://esm.sh/bs58@6.0.0";
+
+// --- ГЕОМЕТРИЯ СЕТКИ ---
+// 7 строк × 10 колонок = 70 ячеек в основном гриде,
+// плюс 1 отдельная ячейка в 8-м ряду → итого 71 бит.
+const ROWS = 7;
+const COLS = 10;
+const GRID_SIZE = ROWS * COLS;   // 70
+const TOTAL = GRID_SIZE + 1;     // 71
+
+const selected = Array(TOTAL).fill("0");
+const locked = Array(TOTAL).fill(false);
+const lastClicked = Array(TOTAL).fill(null);
+
+// --- DOM ---
+const grid = document.getElementById("bitGrid");
+const keyDisplay = document.getElementById("shortKey");
+const addressDisplay = document.getElementById("address");
+const statusDisplay = document.getElementById("status");
+const lockStatus = document.getElementById("lockStatus");
+const patternInput = document.getElementById("vanityPattern");
+const modeSelect = document.getElementById("matchMode");
+
+const randomBtn = document.getElementById("randomBtn");
+const autoBtn = document.getElementById("autoBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+let currentAddress = "";
+let currentKey = "";
+let attempts = 0;
+let mining = false;
+let lastUiUpdate = 0;
+
+// --- СОЗДАНИЕ СЕТКИ 71 БИТ ---
+for (let i = 0; i < TOTAL; i++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bit";
+    btn.textContent = "0";
+    btn.dataset.index = i;
+
+    btn.addEventListener("click", () => handleClick(i));
+    grid.appendChild(btn);
+}
+
+// --- ЛОГИКА КЛИКА: переключение бита / фиксация ---
+// Первый клик по ячейке — переключает 0↔1.
+// Повторный клик по той же позиции с тем же значением — фиксирует/снимает 🔒.
+// Цикл клика по ячейке:
+//   0, unlocked  → 1, unlocked
+//   1, unlocked  → 1, locked      (🔒)
+//   1, locked    → 0, unlocked    (сброс: и бит, и блокировка)
+function handleClick(i) {
+    if (mining) return;
+
+    if (selected[i] === "0" && !locked[i]) {
+        // шаг 1: 0 → 1
+        selected[i] = "1";
+        locked[i] = false;
+    } else if (selected[i] === "1" && !locked[i]) {
+        // шаг 2: 1 → 1 + 🔒
+        locked[i] = true;
+    } else {
+        // шаг 3 (и любое аномальное состояние): 1 + 🔒 → 0
+        selected[i] = "0";
+        locked[i] = false;
+    }
+
+    updateCell(i);
+    updatePreview();
+}
+
+function updateCell(i) {
+    const btn = grid.children[i];
+    btn.textContent = selected[i];
+    btn.classList.toggle("active", selected[i] === "1");
+    btn.classList.toggle("locked", locked[i]);
+
+    const old = btn.querySelector(".lock-icon");
+    if (old) old.remove();
+    if (locked[i]) {
+        const icon = document.createElement("span");
+        icon.className = "lock-icon";
+        icon.textContent = "🔒";
+        btn.appendChild(icon);
+    }
+
+    const count = locked.filter(Boolean).length;
+    lockStatus.textContent = `Заблокировано: ${count} / ${TOTAL}`;
+}
+
+function updateAllCells() {
+    for (let i = 0; i < TOTAL; i++) updateCell(i);
+}
+
+// --- BASE58CHECK ---
+function base58Check(payload) {
+    const checksum = sha256(sha256(payload)).slice(0, 4);
+    const result = new Uint8Array(payload.length + 4);
+    result.set(payload);
+    result.set(checksum, payload.length);
+    return bs58.encode(result);
+}
+
+// --- БИТЫ → HEX-КЛЮЧ (64 hex-символа, 256 бит с ведущими нулями) ---
+// ВНИМАНИЕ: 71 бит заполняют только младшие биты ключа.
+// Старшие 185 бит всегда нули → реальное пространство ключей = 2⁷¹.
+function bitsToPrivateKeyHex(bitString) {
+    let value = 0n;
+    for (const b of bitString) {
+        value = (value << 1n) | BigInt(b);
+    }
+    if (value === 0n) value = 1n;
+    return value.toString(16).padStart(64, "0").toUpperCase();
+}
+
+// --- ГЕНЕРАЦИЯ LEGACY-АДРЕСА (P2PKH) ---
+function generateAddress(bitString) {
+    const fullHex = bitsToPrivateKeyHex(bitString);
+    const privateBytes = Uint8Array.from(
+        fullHex.match(/.{2}/g),
+        byte => parseInt(byte, 16)
+    );
+    const publicKey = secp256k1.getPublicKey(privateBytes, true);
+    const publicHash = ripemd160(sha256(publicKey));
+    const payload = new Uint8Array(21);
+    payload[0] = 0x00;
+    payload.set(publicHash, 1);
+    return base58Check(payload);
+}
+
+// --- ПРОВЕРКА ПАТТЕРНА ---
+// Base58 регистрозависим → "1Love" и "1love" — разные паттерны.
+function matchesPattern(address, pattern, mode) {
+    if (!pattern) return false;
+    if (mode === "startsWith") return address.startsWith(pattern);
+    if (mode === "endsWith")   return address.endsWith(pattern);
+    return address.includes(pattern);
+}
+
+// --- ПРЕДПРОСМОТР ТЕКУЩЕГО СОСТОЯНИЯ (без перебора) ---
+function updatePreview() {
+    const bits = selected.join("");
+    keyDisplay.textContent = bits;
+
+    try {
+        const address = generateAddress(bits);
+        currentAddress = address;
+        currentKey = bitsToPrivateKeyHex(bits);
+        addressDisplay.textContent = address;
+        statusDisplay.className = "status";
+        statusDisplay.textContent = "Предпросмотр текущей комбинации";
+    } catch (e) {
+        currentAddress = "";
+        currentKey = "";
+        addressDisplay.textContent = "Некорректный ключ";
+        statusDisplay.className = "status warn";
+        statusDisplay.textContent = "Ошибка генерации";
+    }
+}
+
+// --- СЛУЧАЙНАЯ ГЕНЕРАЦИЯ (одна комбинация) ---
+function randomize() {
+    if (mining) return;
+    const rnd = new Uint8Array(TOTAL);
+    crypto.getRandomValues(rnd);
+    for (let i = 0; i < TOTAL; i++) {
+        if (locked[i]) continue;
+        selected[i] = (rnd[i] & 1) ? "1" : "0";
+        lastClicked[i] = null;
+        updateCell(i);
+    }
+    updatePreview();
+}
+
+// --- СБРОС ---
+function resetKey() {
+    if (mining) stopMining();
+    selected.fill("0");
+    locked.fill(false);
+    lastClicked.fill(null);
+    attempts = 0;
+    currentAddress = "";
+    currentKey = "";
+    updateAllCells();
+    updatePreview();
+    addressDisplay.textContent = "Ожидание...";
+    statusDisplay.className = "status";
+    statusDisplay.textContent = "Готов к поиску";
+}
+
+// --- VANITY-ПЕРЕБОР (батчами, чтобы не вешать UI) ---
+function mineBatch(batchSize = 2000) {
+    if (!mining) return;
+
+    const pattern = patternInput.value.trim();
+    const mode = modeSelect.value;
+    if (!pattern) {
+        stopMining();
+        statusDisplay.className = "status warn";
+        statusDisplay.textContent = "Введите паттерн для поиска";
+        return;
+    }
+
+    const rnd = new Uint8Array(TOTAL);
+
+    for (let n = 0; n < batchSize; n++) {
+        crypto.getRandomValues(rnd);
+        for (let i = 0; i < TOTAL; i++) {
+            if (!locked[i]) selected[i] = (rnd[i] & 1) ? "1" : "0";
+        }
+
+        const bits = selected.join("");
+        let address;
+        try {
+            address = generateAddress(bits);
+        } catch {
+            continue;
+        }
+
+        attempts++;
+
+        if (matchesPattern(address, pattern, mode)) {
+            // --- НАЙДЕНО ---
+            mining = false;
+            currentAddress = address;
+            currentKey = bitsToPrivateKeyHex(bits);
+            updateAllCells();
+            keyDisplay.textContent = bits;
+            addressDisplay.textContent = address;
+            statusDisplay.className = "status ok";
+            statusDisplay.textContent = `✓ Найдено за ${attempts.toLocaleString()} попыток`;
+            autoBtn.textContent = "Поиск: ВЫКЛ";
+            markFoundCells();
+            showSuccess(address, currentKey, pattern, mode, attempts);
+            return;
+        }
+    }
+
+    // Обновляем UI не чаще ~10 раз в секунду
+    const now = performance.now();
+    if (now - lastUiUpdate > 100) {
+        lastUiUpdate = now;
+        updateAllCells();
+        keyDisplay.textContent = selected.join("");
+        addressDisplay.textContent = "(перебор...)";
+        statusDisplay.className = "status";
+        statusDisplay.textContent =
+            `Попыток: ${attempts.toLocaleString()} · ищем "${pattern}" (${mode})`;
+    }
+}
+
+function startMining() {
+    if (mining) return;
+    const pattern = patternInput.value.trim();
+    if (!pattern) {
+        statusDisplay.className = "status warn";
+        statusDisplay.textContent = "Сначала введите паттерн";
+        return;
+    }
+    mining = true;
+    attempts = 0;
+    lastUiUpdate = 0;
+    autoBtn.textContent = "Поиск: ВКЛ";
+    statusDisplay.className = "status";
+    statusDisplay.textContent = `Ищем "${pattern}"…`;
+
+    const loop = () => {
+        if (!mining) return;
+        mineBatch(2000);
+        setTimeout(loop, 0);   // отдаём поток браузеру
+    };
+    loop();
+}
+
+function stopMining() {
+    mining = false;
+    autoBtn.textContent = "Поиск: ВЫКЛ";
+}
+
+function markFoundCells() {
+    for (let i = 0; i < TOTAL; i++) {
+        grid.children[i].classList.toggle("found", selected[i] === "1");
+    }
+}
+
+// --- МОДАЛКА ---
+function showSuccess(address, key, pattern, mode, tries) {
+    document.getElementById("modalAddress").textContent = address;
+    document.getElementById("modalKey").textContent = key;
+    document.getElementById("modalSubtitle").textContent =
+        `Паттерн "${pattern}" (${mode}) · попыток: ${tries.toLocaleString()}`;
+    document.getElementById("successModal").classList.add("show");
+}
+
+function closeModal() {
+    document.getElementById("successModal").classList.remove("show");
+    for (let i = 0; i < TOTAL; i++) {
+        grid.children[i].classList.remove("found");
+    }
+}
+
+// --- СКАЧИВАНИЕ ---
+function downloadResult() {
+    if (!currentAddress || !currentKey) return;
+    const pattern = patternInput.value.trim();
+    const mode = modeSelect.value;
+    const content =
+`BITCOIN VANITY RESULT
+=====================
+
+ADDRESS
+${currentAddress}
+
+HEX PRIVATE KEY
+${currentKey}
+
+PATTERN
+"${pattern}" (${mode})
+
+ATTEMPTS
+${attempts.toLocaleString()}
+
+BIT STRING (${TOTAL} bits)
+${selected.join("")}
+
+Format: Bitcoin Legacy P2PKH
+WARNING: 71-bit entropy — DO NOT USE FOR REAL FUNDS.
+`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bitcoin-vanity-result.txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// --- КОПИРОВАНИЕ ---
+async function copyAddress() {
+    if (!currentAddress) return;
+    try {
+        await navigator.clipboard.writeText(currentAddress);
+        document.getElementById("copyBtn").textContent = "Скопировано ✓";
+        setTimeout(() => {
+            document.getElementById("copyBtn").textContent = "Копировать адрес";
+        }, 1500);
+    } catch {
+        statusDisplay.className = "status warn";
+        statusDisplay.textContent = "Не удалось скопировать адрес";
+    }
+}
+
+// --- ОБРАБОТЧИКИ ---
+randomBtn.addEventListener("click", randomize);
+resetBtn.addEventListener("click", resetKey);
+document.getElementById("copyBtn").addEventListener("click", copyAddress);
+document.getElementById("downloadBtn").addEventListener("click", downloadResult);
+document.getElementById("reloadBtn").addEventListener("click", () => {
+    stopMining();
+    location.reload();
+});
+document.getElementById("closeBtn").addEventListener("click", closeModal);
+
+autoBtn.addEventListener("click", () => {
+    if (mining) stopMining();
+    else startMining();
+});
+
+patternInput.addEventListener("input", () => {
+    if (!mining) updatePreview();
+});
+
+// --- ИНИЦИАЛИЗАЦИЯ ---
+updateAllCells();
+updatePreview();
+addressDisplay.textContent = "Ожидание...";
+statusDisplay.textContent = "Готов к поиску";
+
+</script>
+
+</body>
+</html>
